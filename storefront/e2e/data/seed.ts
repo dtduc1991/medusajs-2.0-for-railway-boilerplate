@@ -1,6 +1,8 @@
 import axios, { AxiosError, AxiosInstance } from "axios"
 
 axios.defaults.baseURL = process.env.CLIENT_SERVER || "http://localhost:9000"
+axios.defaults.headers.common["x-publishable-api-key"] =
+  process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
 let region = undefined as any
 
 export async function seedData() {
@@ -18,14 +20,22 @@ export async function seedUser(email?: string, password?: string) {
     password: password || "password",
   }
   try {
-    await axios.post("/store/customers", user)
+    const { data: authData } = await axios.post(
+      "/auth/customer/emailpass/register",
+      { email: user.email, password: user.password }
+    )
+    await axios.post(
+      "/store/customers",
+      { first_name: user.first_name, last_name: user.last_name, email: user.email },
+      { headers: { Authorization: `Bearer ${authData.token}` } }
+    )
     return user
   } catch (e: unknown) {
     if (e instanceof AxiosError) {
       if (e.response && e.response.status) {
         const status = e.response.status
-        // https://docs.medusajs.com/api/store#customers_postcustomers
-        if (status === 422) {
+        // customer or auth identity already exists
+        if (status === 422 || status === 401) {
           return user
         }
       }
@@ -87,7 +97,7 @@ export async function seedDiscount(axios?: AxiosInstance) {
 }
 
 async function loginAdmin() {
-  const resp = await axios.post("/admin/auth/token", {
+  const resp = await axios.post("/auth/user/emailpass", {
     email: process.env.MEDUSA_ADMIN_EMAIL || "admin@medusa-test.com",
     password: process.env.MEDUSA_ADMIN_PASSWORD || "supersecret",
   })
@@ -96,7 +106,7 @@ async function loginAdmin() {
   }
   return axios.create({
     headers: {
-      Authorization: `Bearer ${resp.data.access_token}`,
+      Authorization: `Bearer ${resp.data.token}`,
     },
   })
 }

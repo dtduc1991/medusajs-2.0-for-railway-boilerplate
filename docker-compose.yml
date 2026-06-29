@@ -53,7 +53,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/medusa?sslmode=disable
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/test_medusa_db?sslmode=disable
       REDIS_URL: redis://redis:6379
       MEILISEARCH_HOST: http://meilisearch:7700
       MEILISEARCH_MASTER_KEY: ${MEILI_MASTER_KEY:-masterKeyChangeMe123}
