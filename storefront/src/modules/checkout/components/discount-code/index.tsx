@@ -2,9 +2,8 @@
 
 import { Badge, Heading, Input, Label, Text, Tooltip } from "@medusajs/ui"
 import React from "react"
-import { useFormState } from "react-dom"
 
-import { applyPromotions, submitPromotionForm } from "@lib/data/cart"
+import { applyPromotions } from "@lib/data/cart"
 import { convertToLocale } from "@lib/util/money"
 import { InformationCircleSolid } from "@medusajs/icons"
 import { HttpTypes } from "@medusajs/types"
@@ -20,6 +19,7 @@ type DiscountCodeProps = {
 
 const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
   const [isOpen, setIsOpen] = React.useState(false)
+  const [message, setMessage] = React.useState<string | null>(null)
 
   const { items = [], promotions = [] } = cart
   const removePromotionCode = async (code: string) => {
@@ -43,14 +43,16 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
       .map((p) => p.code!)
     codes.push(code.toString())
 
-    await applyPromotions(codes)
-
-    if (input) {
-      input.value = ""
+    try {
+      await applyPromotions(codes)
+      setMessage(null)
+      if (input) {
+        input.value = ""
+      }
+    } catch (e: any) {
+      setMessage(e.message)
     }
   }
-
-  const [message, formAction] = useFormState(submitPromotionForm, null)
 
   return (
     <div className="w-full bg-white flex flex-col">
@@ -113,8 +115,9 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                     data-testid="discount-row"
                   >
                     <Text className="flex gap-x-1 items-baseline txt-small-plus w-4/5 pr-1">
-                      <span className="truncate" data-testid="discount-code">
+                      <span className="truncate">
                         <Badge
+                          data-testid="discount-code"
                           color={promotion.is_automatic ? "green" : "grey"}
                           size="small"
                         >
@@ -124,7 +127,10 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                         {promotion.application_method?.value !== undefined &&
                           promotion.application_method.currency_code !==
                             undefined && (
-                            <>
+                            <span
+                              data-testid="discount-amount"
+                              data-value={promotion.application_method.value}
+                            >
                               {promotion.application_method.type ===
                               "percentage"
                                 ? `${promotion.application_method.value}%`
@@ -134,7 +140,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                                       promotion.application_method
                                         .currency_code,
                                   })}
-                            </>
+                            </span>
                           )}
                         )
                         {/* {promotion.is_automatic && (

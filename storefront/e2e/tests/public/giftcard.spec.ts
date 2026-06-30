@@ -2,7 +2,13 @@ import { first } from "lodash"
 import { seedGiftcard, seedUser } from "../../data/seed"
 import { test, expect } from "../../index"
 
-test.describe("Gift card tests", async () => {
+// Gift cards have no equivalent in the Medusa v2 Promotions module, and this
+// storefront's own cart code has gift card application commented out as
+// unsupported (src/lib/data/cart.ts). See
+// docs/sessions/003-promotions-module-discount-specs.md for the research
+// behind this. Skipped rather than deleted in case gift cards get
+// reintroduced via a future module.
+test.describe.skip("Gift card tests", async () => {
   let giftcard = {
     id: "",
     code: "",

@@ -46,7 +46,10 @@ export async function seedUser(email?: string, password?: string) {
 
 async function loadRegion(axios: AxiosInstance) {
   const resp = await axios.get("/admin/regions")
-  region = resp.data.regions.filter((r: any) => r.currency_code === "usd")[0]
+  // This boilerplate's seed data only provisions a single (Europe/eur) region,
+  // unlike medusa-starter-default which also seeds a us/usd region. Pick
+  // whatever region actually exists rather than assuming "usd".
+  region = resp.data.regions[0]
 }
 
 async function getOrInitAxios(axios?: AxiosInstance) {
@@ -59,39 +62,48 @@ async function getOrInitAxios(axios?: AxiosInstance) {
   return axios
 }
 
-export async function seedGiftcard(axios?: AxiosInstance) {
-  axios = await getOrInitAxios(axios)
-  const resp = await axios.post("/admin/gift-cards", {
-    region_id: region.id,
-    value: 10000,
-  })
-  resp.data.gift_card.amount = resp.data.gift_card.value.toString()
-  return resp.data.gift_card as {
-    id: string
-    code: string
-    value: number
-    amount: string
-    balance: string
-  }
+// Gift cards have no equivalent in the Medusa v2 Promotions module and the
+// storefront's own cart code (src/lib/data/cart.ts) has gift card application
+// commented out as unsupported. See docs/sessions/003-promotions-module-discount-specs.md.
+export async function seedGiftcard(): Promise<never> {
+  throw new Error(
+    "Gift cards are not supported on Medusa v2 - see docs/sessions/003-promotions-module-discount-specs.md"
+  )
 }
 
 export async function seedDiscount(axios?: AxiosInstance) {
   axios = await getOrInitAxios(axios)
-  const amount = 2000
-  const resp = await axios.post("/admin/discounts", {
-    code: "TEST_DISCOUNT_FIXED",
-    regions: [region.id],
-    rule: {
+  const code = "TEST_DISCOUNT_FIXED"
+  // Products in this boilerplate's seed data are priced ~10-25 (eur, plain
+  // currency units, not cents) - keep the fixed discount well under that so
+  // it never gets capped at the cart subtotal server-side.
+  const amount = 5
+
+  // The test DB is only reset between full test files, not between
+  // individual tests, and Medusa v2 rejects a duplicate promotion `code` -
+  // delete any leftover promotion from a previous test in this file first
+  // so repeated beforeEach calls stay idempotent.
+  const existing = await axios.get("/admin/promotions", { params: { code } })
+  for (const promotion of existing.data.promotions) {
+    await axios.delete(`/admin/promotions/${promotion.id}`)
+  }
+
+  const resp = await axios.post("/admin/promotions", {
+    code,
+    type: "standard",
+    status: "active",
+    application_method: {
       type: "fixed",
       value: amount,
-      allocation: "total",
+      currency_code: region.currency_code,
+      target_type: "order",
     },
   })
-  const discount = resp.data.discount
+  const promotion = resp.data.promotion
   return {
-    id: discount.id,
-    code: discount.code,
-    rule_id: discount.rule_id,
+    id: promotion.id,
+    code: promotion.code,
+    rule_id: "",
     amount,
   }
 }
