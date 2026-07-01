@@ -16,7 +16,8 @@
     "build:next": "next build",
     "lint": "next lint",
     "analyze": "ANALYZE=true next build",
-    "test-e2e": "playwright test e2e"
+    "test-e2e": "playwright test e2e",
+    "test-e2e:railway": "playwright test e2e --project=\"chromium railway\""
   },
   "dependencies": {
     "@headlessui/react": "^1.6.1",
