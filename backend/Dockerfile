@@ -12,12 +12,18 @@ COPY . .
 # to be set (see backend/src/lib/constants.ts). Railway only injects service variables into
 # the runtime container, not the "docker build" step, so they must be declared as ARGs here -
 # Railway auto-populates ARGs that share a name with a service variable.
+# BACKEND_PUBLIC_URL is also needed at build time: "medusa build" compiles the admin
+# dashboard into a static JS bundle with admin.backendUrl baked in. Without it here, the
+# bundle falls back to "http://localhost:9000", and admin login fails in the browser with
+# "Failed to fetch" (it's trying to reach localhost on the visitor's machine).
 ARG DATABASE_URL
 ARG JWT_SECRET
 ARG COOKIE_SECRET
+ARG BACKEND_PUBLIC_URL
 ENV DATABASE_URL=$DATABASE_URL
 ENV JWT_SECRET=$JWT_SECRET
 ENV COOKIE_SECRET=$COOKIE_SECRET
+ENV BACKEND_PUBLIC_URL=$BACKEND_PUBLIC_URL
 RUN pnpm build
 
 # "pnpm start" runs "init-backend && cd .medusa/server && medusa start", so the
