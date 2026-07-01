@@ -1,0 +1,5 @@
+admin_email = "you@example.com"
+
+# Optional - order-confirmation emails via Resend. Leave both blank to skip.
+# resend_api_key    = "re_..."
+# resend_from_email = "onboarding@resend.dev"

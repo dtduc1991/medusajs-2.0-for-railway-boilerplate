@@ -82,7 +82,7 @@ test.describe("Checkout flow (Railway deployment, EU region)", () => {
         .getByTestId("shipping-country-select")
         .selectOption("United Kingdom")
 
-      await checkout.getByTestId("shipping-email-input").fill("test@example.com")
+      await checkout.getByTestId("shipping-email-input").fill("dtduc1991@gmail.com")
       await checkout.getByTestId("shipping-phone-input").fill("2071234567")
       await checkout.getByTestId("billing-address-checkbox").uncheck()
 
@@ -142,7 +142,7 @@ test.describe("Checkout flow (Railway deployment, EU region)", () => {
       await expect(address).toContainText("GB")
 
       const contact = order.getByTestId("shipping-contact-summary")
-      await expect(contact).toContainText("test@example.com")
+      await expect(contact).toContainText("dtduc1991@gmail.com")
       await expect(contact).toContainText("2071234567")
 
       const method = order.getByTestId("shipping-method-summary")
