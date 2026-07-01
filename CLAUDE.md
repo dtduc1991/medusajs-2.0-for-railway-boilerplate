@@ -18,6 +18,7 @@ This repo accumulates agent research/handoff docs instead of losing that context
 - `docs/sessions/` — numbered handoff docs in chronological order (001 docker-compose setup, 002 e2e baseline, 003 promotions module research, 004 customer-auth-header bugfix). Each ends with "Open items" for the next agent — check the latest one before starting infra/e2e work.
 - `docs/flows/` — storefront user-journey deep dives grounded in actual code (checkout, cart/promotions, browse/search/PDP), each with file:line references and a "States & edge cases" section calling out real bugs found (not hypothetical).
 - `docs/research/` — standalone technical research (e.g. `@medusajs/loyalty-plugin` gift-card data model — **not installed** in this repo; gift card e2e tests are skipped because v2 core has no gift-card concept).
+- `docs/railway.md` — first live Railway deployment (CLI-driven): project/service topology, `railway.json` files, why `storefront/Dockerfile.railway` exists as a separate file from `storefront/Dockerfile`, and gotchas (Docker build-arg env injection, PORT/domain mismatches, storefront OOM at container-start build). Check before touching Railway config or redeploying.
 
 Known open issues called out in these docs (verify currency before acting):
 - `storefront` checkout/discount e2e specs expect a `us`/`usd` region but `backend/src/scripts/seed.ts` only seeds `eur`/Europe — blocks several checkout/discount tests.

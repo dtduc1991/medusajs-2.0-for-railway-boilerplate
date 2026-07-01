@@ -13,6 +13,14 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Next.js spawns one worker process per CPU for webpack compilation, each with its
+  // own V8 heap. On memory-constrained containers (e.g. Railway's default service
+  // memory limit) that parallelism causes "next build" to OOM - pin it to a single
+  // worker so the build fits in less RAM, at the cost of build speed.
+  experimental: {
+    cpus: 1,
+    workerThreads: false,
+  },
   images: {
     unoptimized: true,
     remotePatterns: [

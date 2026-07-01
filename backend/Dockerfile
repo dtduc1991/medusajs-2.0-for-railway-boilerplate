@@ -8,6 +8,16 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
+# "medusa build" loads medusa-config.js, which requires DATABASE_URL/JWT_SECRET/COOKIE_SECRET
+# to be set (see backend/src/lib/constants.ts). Railway only injects service variables into
+# the runtime container, not the "docker build" step, so they must be declared as ARGs here -
+# Railway auto-populates ARGs that share a name with a service variable.
+ARG DATABASE_URL
+ARG JWT_SECRET
+ARG COOKIE_SECRET
+ENV DATABASE_URL=$DATABASE_URL
+ENV JWT_SECRET=$JWT_SECRET
+ENV COOKIE_SECRET=$COOKIE_SECRET
 RUN pnpm build
 
 # "pnpm start" runs "init-backend && cd .medusa/server && medusa start", so the
