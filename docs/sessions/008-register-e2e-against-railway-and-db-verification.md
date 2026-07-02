@@ -78,10 +78,26 @@ SELECT email, COUNT(*) FROM customer GROUP BY email HAVING COUNT(*) > 1;
 
 → **empty result**, confirming the registration flow never creates two `customer` rows for the same email (no double-submit bug in `storefront/src/modules/account/components/register/index.tsx`'s form handling, at least not one that reaches the DB).
 
+## Stable test account created for a future login-railway.spec.ts
+
+Login test coverage against this deployment (open item #5 below) needs a **fixed, known-password account** — unlike registration, which deliberately uses a fresh timestamped email every run to avoid "customer already exists" collisions, a login test needs to log into the *same* account repeatedly. Created one directly via the Store API (not through the browser — faster, and doesn't require driving Playwright just to seed data) using the flow `storefront/src/lib/data/customer.ts`'s `signup()` follows: `POST /auth/customer/emailpass/register` → `POST /store/customers` (with the returned auth token) → `POST /auth/customer/emailpass` to confirm login succeeds. Publishable key fetched fresh via `GET /key-exchange` (same endpoint the storefront's own `key-exchange` route uses).
+
+```
+email:    e2e-login-railway@example.com
+password: TestPassword123!
+first_name: E2E
+last_name:  LoginTest
+customer id: cus_01KWH7TJSC216CCWZDR0X03D3Z
+```
+
+Login confirmed working end-to-end (`POST /auth/customer/emailpass` returned a valid session JWT). This is a throwaway account on a demo/smoke-test deployment, not a real customer — credentials are recorded here in plaintext deliberately, same spirit as this repo's other demo-deployment secrets (see `docs/railway.md`'s admin password note). **Do not reuse this pattern for a production deployment's credentials.**
+
+Not yet done: the actual `login-railway.spec.ts` file. Next agent picking this up should follow the `register-railway.spec.ts` pattern (plain `@playwright/test` import, `"chromium railway"` project) and use these credentials directly rather than registering a new account per run.
+
 ## Open items / what the next agent should do
 
 1. **`docs/railway.md` needs a refresh** to describe the Terraform-managed deployment (new domains, new service names, no GitHub-disconnected `railway up` flow anymore) — not done this session, flagged above under "Deployment has moved."
 2. **A registered SSH key (`duc.dangtrong@orientsoftware.com`) is now attached to the user's Railway account**, added this session to enable `railway ssh`. Not removed — the user was told where to remove it (Railway dashboard → Account Settings → SSH Keys, or `railway ssh keys`) if unwanted, but no action was taken either way.
 3. **No cleanup of test customer rows.** Consistent with session 005/006's precedent for `checkout-railway.spec.ts` (creates real, uncleaned orders each run) — `register-railway.spec.ts` likewise leaves real `customer` rows in the live deployment's Postgres on every run. Harmless for a demo/smoke-test deployment; worth knowing before running it in a loop or CI.
 4. **If DB verification is needed again and the operator's network allows arbitrary outbound TCP ports**, the `railway tcp-proxy create --port 5432 --service postgres` path (then a local `pg` client, then `railway tcp-proxy delete`) is simpler than the SSH path and doesn't require the user's passphrase — try that first and only fall back to interactive `railway ssh` if it times out.
-5. Only `register-railway.spec.ts`'s guest→registered-customer flow was covered. Login, profile edit, and address-management flows still have no `*-railway.spec.ts` equivalent — same DB-reset-fixture landmine (session 005) would apply if someone tries to point the existing `authenticated/*.spec.ts` suite at this deployment directly.
+5. Only `register-railway.spec.ts`'s guest→registered-customer flow was covered. Login, profile edit, and address-management flows still have no `*-railway.spec.ts` equivalent — same DB-reset-fixture landmine (session 005) would apply if someone tries to point the existing `authenticated/*.spec.ts` suite at this deployment directly. **A stable account for a login test now exists** (see "Stable test account created for a future login-railway.spec.ts" above) — `login-railway.spec.ts` itself still needs to be written.

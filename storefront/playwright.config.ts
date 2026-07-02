@@ -52,7 +52,7 @@ export default defineConfig({
       name: "chromium public",
       dependencies: ["public setup"],
       testMatch: "public/*.spec.ts",
-      testIgnore: ["public/checkout-railway.spec.ts", "public/register-railway.spec.ts"],
+      testIgnore: ["public/checkout-railway.spec.ts", "public/register-railway.spec.ts", "public/login-railway.spec.ts"],
       use: { ...devices["Desktop Chrome"] },
     },
 
@@ -63,7 +63,7 @@ export default defineConfig({
      * `NEXT_PUBLIC_BASE_URL=<deployed storefront URL> npm run test-e2e:railway`. */
     {
       name: "chromium railway",
-      testMatch: ["public/checkout-railway.spec.ts", "public/register-railway.spec.ts"],
+      testMatch: ["public/checkout-railway.spec.ts", "public/register-railway.spec.ts", "public/login-railway.spec.ts"],
       use: { ...devices["Desktop Chrome"] },
     },
 
