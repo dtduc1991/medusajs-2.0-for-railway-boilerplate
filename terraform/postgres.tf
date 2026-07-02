@@ -14,7 +14,7 @@ resource "railway_service" "postgres" {
   source_image = "ghcr.io/railwayapp-templates/postgres-ssl:16"
 
   volume = {
-    name       = "postgres-data"
+    name       = "pg-data"
     mount_path = "/var/lib/postgresql/data"
   }
 }
