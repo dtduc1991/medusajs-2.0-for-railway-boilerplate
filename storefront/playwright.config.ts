@@ -52,18 +52,18 @@ export default defineConfig({
       name: "chromium public",
       dependencies: ["public setup"],
       testMatch: "public/*.spec.ts",
-      testIgnore: "public/checkout-railway.spec.ts",
+      testIgnore: ["public/checkout-railway.spec.ts", "public/register-railway.spec.ts"],
       use: { ...devices["Desktop Chrome"] },
     },
 
     /* Targets a live deployed environment (e.g. Railway), not the local
      * docker-compose stack. No `dependencies`/`teardown`, so it never triggers
-     * the DB-reset fixtures the other projects rely on - see the spec file and
+     * the DB-reset fixtures the other projects rely on - see the spec files and
      * docs/sessions/005-checkout-e2e-against-railway-deploy.md for why. Run with
      * `NEXT_PUBLIC_BASE_URL=<deployed storefront URL> npm run test-e2e:railway`. */
     {
       name: "chromium railway",
-      testMatch: "public/checkout-railway.spec.ts",
+      testMatch: ["public/checkout-railway.spec.ts", "public/register-railway.spec.ts"],
       use: { ...devices["Desktop Chrome"] },
     },
 
