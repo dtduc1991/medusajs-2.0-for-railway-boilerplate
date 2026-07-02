@@ -13,6 +13,16 @@ resource "railway_service" "postgres" {
   project_id   = railway_project.this.id
   source_image = "ghcr.io/railwayapp-templates/postgres-ssl:16"
 
+  # DO NOT rename this volume (or its mount_path) once real data exists. The
+  # railway provider's `volume.id` is computed-only - there's no way to pin
+  # an existing volume by ID, only by name+mount_path - and changing `name`
+  # does not rename the volume in place: it detaches the current one
+  # (orphaning it, with all its data, but not deleting it) and creates a new
+  # empty volume under the new name. This has already happened once (volume
+  # went postgres-data -> pg-data across the "Added Terraform" -> "deploy
+  # railway using terraform" commits), silently orphaning 49MB of seeded
+  # data. If the volume ever needs to change, `terraform import` the target
+  # volume into this resource instead of editing `name` in place.
   volume = {
     name       = "pg-data"
     mount_path = "/var/lib/postgresql/data"
