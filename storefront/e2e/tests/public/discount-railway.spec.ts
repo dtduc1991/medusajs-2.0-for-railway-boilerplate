@@ -333,24 +333,24 @@ test.describe("Discount flow (Railway deployment, EU region)", () => {
 
     const checkout = page.getByTestId("checkout-container")
 
-    await test.step("Fill in the shipping address (UK, matches the tax rate seeded above)", async () => {
+    await test.step("Fill in the shipping address (Germany, matches the tax rate seeded above - deliberately not the UK address the other tests in this file use, see seedTax's comment)", async () => {
       await checkout.getByTestId("shipping-first-name-input").fill("First")
       await checkout.getByTestId("shipping-last-name-input").fill("Last")
       await checkout.getByTestId("shipping-company-input").fill("MyCorp")
       await checkout
         .getByTestId("shipping-address-input")
-        .fill("10 Downing Street")
-      await checkout.getByTestId("shipping-postal-code-input").fill("SW1A 2AA")
-      await checkout.getByTestId("shipping-city-input").fill("London")
-      await checkout.getByTestId("shipping-province-input").fill("London")
+        .fill("Unter den Linden 1")
+      await checkout.getByTestId("shipping-postal-code-input").fill("10117")
+      await checkout.getByTestId("shipping-city-input").fill("Berlin")
+      await checkout.getByTestId("shipping-province-input").fill("Berlin")
       await checkout
         .getByTestId("shipping-country-select")
-        .selectOption("United Kingdom")
+        .selectOption("Germany")
 
       await checkout
         .getByTestId("shipping-email-input")
         .fill("dtduc1991@gmail.com")
-      await checkout.getByTestId("shipping-phone-input").fill("2071234567")
+      await checkout.getByTestId("shipping-phone-input").fill("15123456789")
       await checkout.getByTestId("submit-address-button").click()
     })
 

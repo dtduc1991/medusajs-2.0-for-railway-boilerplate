@@ -118,9 +118,13 @@ export async function seedDiscount(axios?: AxiosInstance) {
 // safe to call repeatedly against a persistent deployment DB.
 export async function seedTax(axios?: AxiosInstance) {
   axios = await getOrInitAxios(axios)
-  // "gb" matches the UK shipping address used by discount-railway.spec.ts and
-  // the local discount.spec.ts's checkout steps.
-  const countryCode = "gb"
+  // Deliberately NOT "gb" - that's the shared UK address used by
+  // checkout-railway.spec.ts and discount-railway.spec.ts's other tests,
+  // all of which assume 0 tax. This rate is left behind in the deployment
+  // DB (same no-cleanup caveat as seedDiscount), so seeding it onto "gb"
+  // would permanently break those tests' totals math. "de" isn't used as a
+  // checkout address by any other *-railway spec.
+  const countryCode = "de"
   const code = "TEST_TAX_RATE"
   const rate = 20
 
