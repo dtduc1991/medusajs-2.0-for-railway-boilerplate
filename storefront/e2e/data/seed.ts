@@ -108,6 +108,57 @@ export async function seedDiscount(axios?: AxiosInstance) {
   }
 }
 
+// This boilerplate's seed script (backend/src/scripts/seed.ts) provisions tax
+// regions for every seeded country via createTaxRegionsWorkflow, but doesn't
+// attach a tax rate to any of them - so `automatic_taxes: true` on the Europe
+// region computes to 0 tax on every order out of the box. Tests that need a
+// non-zero tax_total (e.g. to verify subtotal display excludes taxes, not
+// just shipping) must seed one themselves. Idempotent like seedDiscount:
+// deletes any leftover rate with the same code before creating a fresh one,
+// safe to call repeatedly against a persistent deployment DB.
+export async function seedTax(axios?: AxiosInstance) {
+  axios = await getOrInitAxios(axios)
+  // "gb" matches the UK shipping address used by discount-railway.spec.ts and
+  // the local discount.spec.ts's checkout steps.
+  const countryCode = "gb"
+  const code = "TEST_TAX_RATE"
+  const rate = 20
+
+  const taxRegions = await axios.get("/admin/tax-regions", {
+    params: { country_code: countryCode },
+  })
+  const taxRegion = taxRegions.data.tax_regions[0]
+  if (!taxRegion) {
+    throw new Error(
+      `No tax region found for country "${countryCode}" - check backend/src/scripts/seed.ts's createTaxRegionsWorkflow call`
+    )
+  }
+
+  // AdminGetTaxRatesParams doesn't accept a `code` filter, only
+  // `tax_region_id` - filter by code client-side instead.
+  const existing = await axios.get("/admin/tax-rates", {
+    params: { tax_region_id: taxRegion.id },
+  })
+  for (const taxRate of existing.data.tax_rates) {
+    if (taxRate.code === code) {
+      await axios.delete(`/admin/tax-rates/${taxRate.id}`)
+    }
+  }
+
+  const resp = await axios.post("/admin/tax-rates", {
+    code,
+    name: "Test Tax Rate",
+    rate,
+    tax_region_id: taxRegion.id,
+    is_default: true,
+  })
+
+  return {
+    id: resp.data.tax_rate.id,
+    rate,
+  }
+}
+
 async function loginAdmin() {
   const resp = await axios.post("/auth/user/emailpass", {
     email: process.env.MEDUSA_ADMIN_EMAIL || "admin@medusa-test.com",

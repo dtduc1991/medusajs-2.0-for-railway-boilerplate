@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test"
-import { seedDiscount } from "../../data/seed"
+import { seedDiscount, seedTax } from "../../data/seed"
 
 // Discount / promo-code flow against a live deployed environment (e.g. Railway -
 // see docs/railway.md). Run via the "chromium railway" Playwright project:
@@ -264,6 +264,143 @@ test.describe("Discount flow (Railway deployment, EU region)", () => {
       await discountInput.fill("__FAKE_DISCOUNT_RAILWAY_DNE_1111111")
       await cart.getByTestId("discount-apply-button").click()
       await expect(cart.getByTestId("discount-error-message")).toBeVisible()
+    })
+  })
+
+  // Seeds a real tax rate (see seedTax's comment - this deployment's seed
+  // script provisions tax regions but never attaches a rate, so tax_total is
+  // 0 on every order otherwise). Deliberately the last test in this file:
+  // seedTax mutates the live "gb" tax region for the whole deployment (not
+  // scoped to this test/order), so running it earlier would silently break
+  // the cartTotal/cartSubtotal math in the tests above, which assume 0 tax.
+  test("Order subtotal excludes both shipping and taxes once a real tax rate is configured", async ({
+    page,
+  }) => {
+    const tax = await seedTax()
+
+    await test.step("Navigate to the store page and open a product", async () => {
+      await page.goto("/")
+      await page.getByTestId("nav-menu-button").click()
+      const navMenu = page.getByTestId("nav-menu-popup")
+      await navMenu.waitFor({ state: "visible" })
+      await navMenu.getByTestId("store-link").click()
+      await page.getByTestId("store-page-title").waitFor({ state: "visible" })
+      await page
+        .getByTestId("products-list-loader")
+        .waitFor({ state: "hidden" })
+
+      const product = page
+        .getByTestId("products-list")
+        .getByTestId("product-wrapper")
+        .filter({ hasText: "Sweatshirt" })
+      await product.click()
+      await page.getByTestId("product-container").waitFor({ state: "visible" })
+    })
+
+    await test.step("Select size M, add to cart, and go to the cart", async () => {
+      await page.mouse.move(0, 0)
+      await page
+        .getByTestId("product-options")
+        .getByTestId("option-button")
+        .filter({ hasText: "M" })
+        .click({ clickCount: 2 })
+      await page.getByTestId("add-product-button").click()
+      await page.getByTestId("nav-cart-dropdown").waitFor({ state: "visible" })
+      await page
+        .getByTestId("nav-cart-dropdown")
+        .getByTestId("go-to-cart-button")
+        .click()
+      await page.getByTestId("cart-container").waitFor({ state: "visible" })
+      await closeNavCartDropdown(page)
+    })
+
+    const cart = page.getByTestId("cart-container")
+    let itemSubtotal = 0
+
+    await test.step("Read the item subtotal before an address/tax is known", async () => {
+      // No shipping method and no address yet, so item_subtotal, subtotal,
+      // and total should all agree at this point - nothing to exclude yet.
+      itemSubtotal = Number(
+        (await cart.getByTestId("cart-subtotal").getAttribute("data-value")) ||
+          ""
+      )
+    })
+
+    await test.step("Proceed to checkout", async () => {
+      await cart.getByTestId("checkout-button").click()
+      await page.getByTestId("checkout-container").waitFor({ state: "visible" })
+    })
+
+    const checkout = page.getByTestId("checkout-container")
+
+    await test.step("Fill in the shipping address (UK, matches the tax rate seeded above)", async () => {
+      await checkout.getByTestId("shipping-first-name-input").fill("First")
+      await checkout.getByTestId("shipping-last-name-input").fill("Last")
+      await checkout.getByTestId("shipping-company-input").fill("MyCorp")
+      await checkout
+        .getByTestId("shipping-address-input")
+        .fill("10 Downing Street")
+      await checkout.getByTestId("shipping-postal-code-input").fill("SW1A 2AA")
+      await checkout.getByTestId("shipping-city-input").fill("London")
+      await checkout.getByTestId("shipping-province-input").fill("London")
+      await checkout
+        .getByTestId("shipping-country-select")
+        .selectOption("United Kingdom")
+
+      await checkout
+        .getByTestId("shipping-email-input")
+        .fill("dtduc1991@gmail.com")
+      await checkout.getByTestId("shipping-phone-input").fill("2071234567")
+      await checkout.getByTestId("submit-address-button").click()
+    })
+
+    let shippingTotal = 0
+
+    await test.step("Select delivery, then submit payment and order", async () => {
+      await checkout
+        .getByTestId("delivery-option-radio")
+        .filter({ hasText: "Standard Shipping" })
+        .click()
+      await checkout.getByTestId("submit-delivery-option-button").click()
+      shippingTotal = Number(
+        (await checkout.getByTestId("cart-shipping").getAttribute("data-value")) ||
+          "0"
+      )
+      await checkout.getByText("Manual Payment").click()
+      await checkout.getByTestId("submit-payment-button").click()
+      await checkout.getByTestId("submit-order-button").click()
+      await page
+        .getByTestId("order-complete-container")
+        .waitFor({ state: "visible" })
+    })
+
+    const order = page.getByTestId("order-complete-container")
+
+    await test.step("Verify the order's tax is non-zero and the subtotal display excludes both shipping and tax", async () => {
+      const taxTotal = Number(
+        (await order.getByTestId("cart-taxes").getAttribute("data-value")) ||
+          "0"
+      )
+      // Sanity check that this test is actually exercising a non-zero tax -
+      // otherwise the assertions below would trivially pass even with the
+      // pre-fix code (subtotal only visibly differs from item_subtotal once
+      // shipping or tax is non-zero).
+      expect(taxTotal).toBeGreaterThan(0)
+      expect(taxTotal).toBe(
+        Math.round(((itemSubtotal + shippingTotal) * tax.rate) / 100)
+      )
+
+      expect(
+        await order.getByTestId("cart-shipping").getAttribute("data-value")
+      ).toBe(shippingTotal.toString())
+      // The fix under test: cart-subtotal must equal the items-only figure,
+      // not item_subtotal + shipping_total + tax_total.
+      expect(
+        await order.getByTestId("cart-subtotal").getAttribute("data-value")
+      ).toBe(itemSubtotal.toString())
+      expect(
+        await order.getByTestId("cart-total").getAttribute("data-value")
+      ).toBe((itemSubtotal + shippingTotal + taxTotal).toString())
     })
   })
 })
