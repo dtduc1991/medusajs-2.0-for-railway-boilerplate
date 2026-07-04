@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { snap } from './utils/screenshot';
 
 // Requires a running Medusa backend (see new-storefront/.env.local /
 // .env.local.template) with the coffee catalog seeded via
@@ -16,7 +17,9 @@ test.beforeEach(async ({ page }) => {
   await page.waitForSelector('text=Order ahead');
 });
 
-test('guest can add a drink, check out, and land on a real order confirmation', async ({ page }) => {
+test('guest can add a drink, check out, and land on a real order confirmation', async ({ page }, testInfo) => {
+  await snap(page, testInfo, '01-menu');
+
   await page.getByTestId('featured-quick-add-button').click();
 
   await page.getByTestId('tab-bag').click();
@@ -24,6 +27,7 @@ test('guest can add a drink, check out, and land on a real order confirmation', 
   await expect(payButton).toBeVisible();
   await expect(page.getByTestId('cart-item')).toHaveCount(1);
   const bagTotal = parseAmount(await payButton.textContent());
+  await snap(page, testInfo, '02-bag');
   await payButton.click();
 
   await expect(page.getByTestId('checkout-container')).toBeVisible();
@@ -34,6 +38,7 @@ test('guest can add a drink, check out, and land on a real order confirmation', 
   await page.getByTestId('city-input').fill('Berlin');
   await page.getByTestId('postal-code-input').fill('10115');
   await page.getByTestId('country-select').selectOption('de');
+  await snap(page, testInfo, '03-checkout-address-filled');
 
   await page.getByTestId('continue-to-delivery-button').click();
 
@@ -49,24 +54,29 @@ test('guest can add a drink, check out, and land on a real order confirmation', 
   // right up until the order was placed. expect.poll retries until the
   // refetch lands rather than racing it with a single read.
   await expect.poll(async () => parseAmount(await placeOrderButton.textContent()), { timeout: 10000 }).toBeGreaterThan(bagTotal);
+  await snap(page, testInfo, '04-checkout-shipping-selected');
 
   await placeOrderButton.click();
 
   await expect(page.getByTestId('order-confirmation')).toBeVisible({ timeout: 15000 });
   await expect(page.getByTestId('order-display-id')).toContainText('Order #');
+  await snap(page, testInfo, '05-order-confirmation');
 
   await page.getByTestId('back-to-menu-button').click();
   await page.getByTestId('tab-bag').click();
   await expect(page.getByTestId('cart-item')).toHaveCount(0);
+  await snap(page, testInfo, '06-bag-emptied');
 });
 
-test('checkout form cannot be submitted with required fields missing', async ({ page }) => {
+test('checkout form cannot be submitted with required fields missing', async ({ page }, testInfo) => {
   await page.getByTestId('featured-quick-add-button').click();
   await page.getByTestId('tab-bag').click();
   await page.getByTestId('pay-button').click();
 
   await expect(page.getByTestId('continue-to-delivery-button')).toBeDisabled();
+  await snap(page, testInfo, '01-continue-disabled-empty-form');
 
   await page.getByTestId('email-input').fill('partial@example.com');
   await expect(page.getByTestId('continue-to-delivery-button')).toBeDisabled();
+  await snap(page, testInfo, '02-continue-disabled-partial-form');
 });
