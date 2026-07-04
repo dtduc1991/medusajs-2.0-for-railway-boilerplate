@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { theme } from '../theme';
 import { Icon } from '../components/Icon';
 import { Placeholder } from '../components/Placeholder';
-import { SIZE_DELTA, EXTRAS, money } from '../data';
-import type { Drink, Size, Milk, Extra } from '../types';
+import { EXTRAS, money } from '../data';
+import type { Drink, Size, Milk } from '../types';
 
 const SIZES: { size: Size; oz: string }[] = [
   { size: 'Small', oz: '12 oz' },
@@ -15,7 +15,8 @@ const MILKS: Milk[] = ['Oat', 'Whole', 'Almond', 'Lactose-free'];
 interface DrinkDetailScreenProps {
   drink: Drink;
   onBack: () => void;
-  onAdd: (config: { drink: Drink; size: Size; milk: Milk; extras: Extra[]; unitPrice: number }) => void;
+  /** Adds the real backend variant matching the chosen size/milk to the cart. */
+  onAdd: (variantId: string, quantity: number) => void;
 }
 
 export function DrinkDetailScreen({ drink, onBack, onAdd }: DrinkDetailScreenProps) {
@@ -25,8 +26,11 @@ export function DrinkDetailScreen({ drink, onBack, onAdd }: DrinkDetailScreenPro
   const [extraIds, setExtraIds] = useState<Set<string>>(new Set(['shot']));
   const [qty, setQty] = useState(1);
 
+  const variant = drink.variants.find((v) => v.size === size && v.milk === milk);
+  // Extras have no backend price representation yet (see new-storefront/docs/backend-integration.md);
+  // they still preview here for the customize UX but aren't sent when adding to the real cart.
   const extras = EXTRAS.filter((e) => extraIds.has(e.id));
-  const unitPrice = drink.price + SIZE_DELTA[size] + extras.reduce((s, e) => s + e.price, 0);
+  const unitPrice = (variant?.price ?? drink.price) + extras.reduce((s, e) => s + e.price, 0);
   const total = unitPrice * qty;
 
   const toggleExtra = (id: string) =>
@@ -86,7 +90,7 @@ export function DrinkDetailScreen({ drink, onBack, onAdd }: DrinkDetailScreenPro
               4.9 · 128 ratings
             </div>
           </div>
-          <div style={{ font: `700 22px ${theme.display}`, color: theme.accent }}>{money(drink.price)}</div>
+          <div style={{ font: `700 22px ${theme.display}`, color: theme.accent }}>{money(drink.price, drink.currencyCode)}</div>
         </div>
 
         {/* Size */}
@@ -161,7 +165,7 @@ export function DrinkDetailScreen({ drink, onBack, onAdd }: DrinkDetailScreenPro
               >
                 <div>
                   <div style={{ font: `600 14px ${theme.body}`, color: theme.ink }}>{e.label}</div>
-                  <div style={{ font: `500 12px ${theme.body}`, color: theme.muted }}>+{money(e.price)}</div>
+                  <div style={{ font: `500 12px ${theme.body}`, color: theme.muted }}>+{money(e.price, drink.currencyCode)}</div>
                 </div>
                 <button onClick={() => toggleExtra(e.id)} style={toggleTrack(on)}>
                   <span style={toggleKnob(on)} />
@@ -195,19 +199,20 @@ export function DrinkDetailScreen({ drink, onBack, onAdd }: DrinkDetailScreenPro
           </button>
         </div>
         <button
-          onClick={() => onAdd({ drink, size, milk, extras, unitPrice })}
+          disabled={!variant}
+          onClick={() => variant && onAdd(variant.id, qty)}
           style={{
             flex: 1,
             height: 54,
             borderRadius: 16,
-            background: theme.accent,
+            background: variant ? theme.accent : theme.muted,
             color: '#fff',
             border: 'none',
-            cursor: 'pointer',
+            cursor: variant ? 'pointer' : 'not-allowed',
             font: `600 16px ${theme.body}`,
           }}
         >
-          Add to bag · {money(total)}
+          Add to bag · {money(total, drink.currencyCode)}
         </button>
       </div>
     </div>

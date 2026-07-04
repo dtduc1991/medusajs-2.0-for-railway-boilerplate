@@ -1,22 +1,24 @@
+import { useState } from 'react';
 import { theme } from '../theme';
 import { Icon } from '../components/Icon';
 import { Placeholder } from '../components/Placeholder';
 import { STORE, money } from '../data';
-import type { CartItem } from '../types';
-
-const TAX_RATE = 0.078;
+import type { Cart } from '../lib/backend';
 
 interface CartScreenProps {
-  items: CartItem[];
+  cart: Cart | null;
   onQty: (lineId: string, delta: number) => void;
+  onApplyPromo: (code: string) => void;
+  promoError: string | null;
   onBrowse: () => void;
 }
 
-export function CartScreen({ items, onQty, onBrowse }: CartScreenProps) {
-  const subtotal = items.reduce((s, it) => s + it.unitPrice * it.qty, 0);
-  const tax = subtotal * TAX_RATE;
-  const total = subtotal + tax;
-  const stars = Math.round(subtotal * 2);
+export function CartScreen({ cart, onQty, onApplyPromo, promoError, onBrowse }: CartScreenProps) {
+  const [promoCode, setPromoCode] = useState('');
+  const [showPromoInput, setShowPromoInput] = useState(false);
+
+  const items = cart?.items ?? [];
+  const currencyCode = cart?.currencyCode ?? 'eur';
 
   if (items.length === 0) {
     return (
@@ -32,6 +34,10 @@ export function CartScreen({ items, onQty, onBrowse }: CartScreenProps) {
       </div>
     );
   }
+
+  // Stars-earned is a loyalty-ledger concept with no backend module yet (see
+  // new-storefront/docs/backend-integration.md) — kept as a local-only estimate.
+  const stars = Math.round((cart?.subtotal ?? 0) * 2);
 
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -59,14 +65,13 @@ export function CartScreen({ items, onQty, onBrowse }: CartScreenProps) {
       <div style={{ padding: '8px 24px 0', flex: 1, overflowY: 'auto' }}>
         {items.map((it) => (
           <div key={it.lineId} style={{ display: 'flex', gap: 13, alignItems: 'center', padding: '16px 0', borderBottom: `1px solid ${theme.line}` }}>
-            <Placeholder tint={it.drink.tint} width={58} height={58} radius={15} />
+            <Placeholder tint={it.tint} width={58} height={58} radius={15} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ font: `600 15px ${theme.body}`, color: theme.ink }}>{it.drink.name}</div>
+              <div style={{ font: `600 15px ${theme.body}`, color: theme.ink }}>{it.title}</div>
               <div style={{ font: `500 12px ${theme.body}`, color: theme.muted, marginTop: 2 }}>
-                {it.size} · {it.milk}
-                {it.extras.length > 0 && ` · ${it.extras.map((e) => e.label.replace('Extra espresso shot', 'Extra shot')).join(' · ')}`}
+                {[it.size, it.milk].filter(Boolean).join(' · ')}
               </div>
-              <div style={{ font: `600 14px ${theme.display}`, color: theme.ink, marginTop: 5 }}>{money(it.unitPrice)}</div>
+              <div style={{ font: `600 14px ${theme.display}`, color: theme.ink, marginTop: 5 }}>{money(it.unitPrice, currencyCode)}</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${theme.lineStrong}`, borderRadius: 11, background: theme.paper }}>
               <button onClick={() => onQty(it.lineId, -1)} style={miniStep}>
@@ -81,16 +86,46 @@ export function CartScreen({ items, onQty, onBrowse }: CartScreenProps) {
         ))}
 
         {/* Promo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 0', borderBottom: `1px solid ${theme.line}`, color: theme.ink }}>
-          <Icon name="Tag" size={18} color={theme.accent} />
-          <span style={{ flex: 1, font: `600 14px ${theme.body}` }}>Apply a promo code</span>
-          <Icon name="ChevronRight" size={18} color="#b0a499" />
-        </div>
+        {showPromoInput ? (
+          <div style={{ borderBottom: `1px solid ${theme.line}` }}>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (promoCode.trim()) onApplyPromo(promoCode.trim());
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 0 4px' }}
+            >
+              <Icon name="Tag" size={18} color={theme.accent} />
+              <input
+                autoFocus
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                placeholder="Promo code"
+                style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', font: `600 14px ${theme.body}`, color: theme.ink }}
+              />
+              <button type="submit" style={{ background: 'none', border: 'none', color: theme.accent, font: `600 13px ${theme.body}`, cursor: 'pointer' }}>
+                Apply
+              </button>
+            </form>
+            {promoError && (
+              <div style={{ font: `500 12px ${theme.body}`, color: theme.accent, padding: '0 0 12px 28px' }}>{promoError}</div>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowPromoInput(true)}
+            style={{ ...resetBtn, width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '16px 0', borderBottom: `1px solid ${theme.line}`, color: theme.ink }}
+          >
+            <Icon name="Tag" size={18} color={theme.accent} />
+            <span style={{ flex: 1, font: `600 14px ${theme.body}`, textAlign: 'left' }}>Apply a promo code</span>
+            <Icon name="ChevronRight" size={18} color="#b0a499" />
+          </button>
+        )}
 
         {/* Summary */}
         <div style={{ padding: '16px 0 0', display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <SummaryRow label="Subtotal" value={money(subtotal)} />
-          <SummaryRow label="Taxes" value={money(tax)} />
+          <SummaryRow label="Subtotal" value={money(cart?.subtotal ?? 0, currencyCode)} />
+          <SummaryRow label="Taxes" value={money(cart?.tax ?? 0, currencyCode)} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, font: `500 14px ${theme.body}`, color: theme.green }}>
             <Icon name="Star" size={14} />
             Earns +{stars} ★
@@ -103,7 +138,7 @@ export function CartScreen({ items, onQty, onBrowse }: CartScreenProps) {
       <div style={{ flexShrink: 0, padding: '14px 24px 30px', background: theme.cream, borderTop: `1px solid rgba(34,27,22,0.06)` }}>
         <button style={{ width: '100%', height: 56, borderRadius: 16, background: theme.accent, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}>
           <Icon name="Lock" size={18} />
-          <span style={{ font: `600 16px ${theme.body}` }}>Pay {money(total)}</span>
+          <span style={{ font: `600 16px ${theme.body}` }}>Pay {money(cart?.total ?? 0, currencyCode)}</span>
         </button>
       </div>
     </div>
@@ -130,3 +165,5 @@ const miniStep: React.CSSProperties = {
   border: 'none',
   cursor: 'pointer',
 };
+
+const resetBtn: React.CSSProperties = { background: 'none', border: 'none', padding: 0, cursor: 'pointer' };

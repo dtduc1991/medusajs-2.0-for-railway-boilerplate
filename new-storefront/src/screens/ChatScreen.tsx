@@ -1,40 +1,65 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { theme } from '../theme';
 import { Icon } from '../components/Icon';
 import { Placeholder } from '../components/Placeholder';
-import { byId, money } from '../data';
+import { money } from '../data';
 import type { Drink, ChatMessage } from '../types';
-
-const REC = byId('bs-oat-latte')!;
-
-const INITIAL: ChatMessage[] = [
-  { id: 'm1', from: 'bot', text: 'Morning, Alex! Feeling something bold, sweet, or iced today?' },
-  { id: 'm2', from: 'user', text: 'Something sweet and iced, not too strong please' },
-  { id: 'm3', from: 'bot', text: 'Perfect — light, sweet and refreshing. This one’s a favourite:', card: REC },
-  { id: 'm4', from: 'bot', text: "You're 4 ★ from a free drink — add it and you're almost there!", nudge: true },
-];
 
 const QUICK_REPLIES = ['Add to bag', 'Make it decaf', 'Sweeter'];
 
 interface ChatScreenProps {
+  /** The real product catalog, so the recommendation card is a real add-to-cart-able drink. */
+  drinks: Drink[];
   variant: 'bubbles' | 'voice';
   onToggleVariant: (v: 'bubbles' | 'voice') => void;
   onExit: () => void;
   onAdd: (drink: Drink) => void;
 }
 
-export function ChatScreen({ variant, onToggleVariant, onExit, onAdd }: ChatScreenProps) {
+export function ChatScreen({ drinks, variant, onToggleVariant, onExit, onAdd }: ChatScreenProps) {
+  // Canned recommendation only — a real assistant would pick this from a
+  // conversation/LLM, which is out of scope for the Medusa backend wiring
+  // (see new-storefront/docs/backend-integration.md "Chat" section).
+  const rec = drinks.find((d) => d.handle === 'brown-sugar-oat-latte') ?? drinks[0];
+
+  if (!rec) {
+    return (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `600 14px ${theme.body}`, color: theme.muted }}>
+        No drinks available yet.
+      </div>
+    );
+  }
+
   return variant === 'bubbles' ? (
-    <BubbleChat onAdd={onAdd} onExit={onExit} onSwitch={() => onToggleVariant('voice')} />
+    <BubbleChat rec={rec} onAdd={onAdd} onExit={onExit} onSwitch={() => onToggleVariant('voice')} />
   ) : (
-    <VoiceChat onAdd={onAdd} onExit={onExit} onSwitch={() => onToggleVariant('bubbles')} />
+    <VoiceChat rec={rec} onAdd={onAdd} onExit={onExit} onSwitch={() => onToggleVariant('bubbles')} />
   );
 }
 
 /* ----------------------------- Variant A: light bubbles ----------------------------- */
 
-function BubbleChat({ onAdd, onExit, onSwitch }: { onAdd: (d: Drink) => void; onExit: () => void; onSwitch: () => void }) {
-  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL);
+function BubbleChat({
+  rec,
+  onAdd,
+  onExit,
+  onSwitch,
+}: {
+  rec: Drink;
+  onAdd: (d: Drink) => void;
+  onExit: () => void;
+  onSwitch: () => void;
+}) {
+  const initial: ChatMessage[] = useMemo(
+    () => [
+      { id: 'm1', from: 'bot', text: 'Morning, Alex! Feeling something bold, sweet, or iced today?' },
+      { id: 'm2', from: 'user', text: 'Something sweet and iced, not too strong please' },
+      { id: 'm3', from: 'bot', text: 'Perfect — light, sweet and refreshing. This one’s a favourite:', card: rec },
+      { id: 'm4', from: 'bot', text: "You're 4 ★ from a free drink — add it and you're almost there!", nudge: true },
+    ],
+    [rec]
+  );
+  const [messages, setMessages] = useState<ChatMessage[]>(initial);
   const [draft, setDraft] = useState('');
 
   const send = (text: string) => {
@@ -45,7 +70,7 @@ function BubbleChat({ onAdd, onExit, onSwitch }: { onAdd: (d: Drink) => void; on
     setTimeout(() => {
       setMessages((m) => [
         ...m,
-        { id: `b${Date.now()}`, from: 'bot', text: 'On it — here’s a great match for that:', card: REC },
+        { id: `b${Date.now()}`, from: 'bot', text: 'On it — here’s a great match for that:', card: rec },
       ]);
     }, 600);
   };
@@ -86,7 +111,7 @@ function BubbleChat({ onAdd, onExit, onSwitch }: { onAdd: (d: Drink) => void; on
                     <div style={{ font: `600 14px ${theme.body}`, color: theme.ink }}>Iced {m.card.name}</div>
                     <div style={{ font: `500 12px ${theme.body}`, color: theme.muted, marginTop: 2 }}>Medium · light ice · half-caff</div>
                   </div>
-                  <div style={{ font: `700 14px ${theme.display}`, color: theme.accent }}>{money(m.card.price)}</div>
+                  <div style={{ font: `700 14px ${theme.display}`, color: theme.accent }}>{money(m.card.price, m.card.currencyCode)}</div>
                 </div>
                 <button
                   onClick={() => onAdd(m.card!)}
@@ -113,7 +138,7 @@ function BubbleChat({ onAdd, onExit, onSwitch }: { onAdd: (d: Drink) => void; on
         {QUICK_REPLIES.map((q, i) => (
           <button
             key={q}
-            onClick={() => (i === 0 ? onAdd(REC) : send(q))}
+            onClick={() => (i === 0 ? onAdd(rec) : send(q))}
             style={{
               padding: '9px 15px',
               borderRadius: theme.rPill,
@@ -179,7 +204,17 @@ const MOODS = [
   { icon: 'Sparkles', label: 'Surprise me', active: false },
 ];
 
-function VoiceChat({ onAdd, onExit, onSwitch }: { onAdd: (d: Drink) => void; onExit: () => void; onSwitch: () => void }) {
+function VoiceChat({
+  rec,
+  onAdd,
+  onExit,
+  onSwitch,
+}: {
+  rec: Drink;
+  onAdd: (d: Drink) => void;
+  onExit: () => void;
+  onSwitch: () => void;
+}) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', color: theme.cream }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 22px 8px' }}>
@@ -232,13 +267,13 @@ function VoiceChat({ onAdd, onExit, onSwitch }: { onAdd: (d: Drink) => void; onE
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 13 }}>
             <Placeholder tint="#3a2f26" dark width={48} height={48} radius={13} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ font: `600 14px ${theme.body}`, color: theme.cream }}>Iced {REC.name}</div>
+              <div style={{ font: `600 14px ${theme.body}`, color: theme.cream }}>Iced {rec.name}</div>
               <div style={{ font: `500 12px ${theme.body}`, color: '#9b8d80', marginTop: 2 }}>Half-caff · oat · light ice</div>
             </div>
-            <div style={{ font: `700 14px ${theme.display}`, color: theme.gold }}>{money(REC.price)}</div>
+            <div style={{ font: `700 14px ${theme.display}`, color: theme.gold }}>{money(rec.price, rec.currencyCode)}</div>
           </div>
           <div style={{ display: 'flex', gap: 9, marginTop: 14 }}>
-            <button onClick={() => onAdd(REC)} style={{ flex: 1, height: 42, borderRadius: 13, background: theme.accent, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, font: `600 13px ${theme.body}` }}>
+            <button onClick={() => onAdd(rec)} style={{ flex: 1, height: 42, borderRadius: 13, background: theme.accent, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, font: `600 13px ${theme.body}` }}>
               <Icon name="Plus" size={16} />
               Add to bag
             </button>

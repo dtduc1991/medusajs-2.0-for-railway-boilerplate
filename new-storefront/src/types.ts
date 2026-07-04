@@ -7,27 +7,40 @@ export interface Extra {
   price: number;
 }
 
+/** One purchasable Size x Milk combination of a Drink, backed by a real Medusa product variant. */
+export interface DrinkVariant {
+  id: string;
+  size: Size;
+  milk: Milk;
+  price: number;
+}
+
 export interface Drink {
   id: string;
+  handle: string;
   name: string;
   desc: string;
+  /** Cheapest variant's price — used for list-view display before a size/milk is chosen. */
   price: number;
-  /** Base tint color for the striped image placeholder. */
+  /** Base tint color for the striped image placeholder — cosmetic only, Medusa has no such field. */
   tint: string;
   category: string;
   tag?: string;
+  variants: DrinkVariant[];
+  currencyCode: string;
 }
 
+/** One line item in the real backend cart. */
 export interface CartItem {
-  /** Unique line id (a drink can appear multiple times with different options). */
   lineId: string;
-  drink: Drink;
-  size: Size;
-  milk: Milk;
-  extras: Extra[];
+  productId: string;
+  title: string;
+  tint: string;
+  size: Size | null;
+  milk: Milk | null;
   qty: number;
-  /** Per-unit price including size + extras. */
   unitPrice: number;
+  lineTotal: number;
 }
 
 export interface ChatMessage {
