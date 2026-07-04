@@ -36,6 +36,7 @@ export function TabBar({ active, onChange, bagCount = 0 }: TabBarProps) {
         return (
           <button
             key={item.tab}
+            data-testid={`tab-${item.tab}`}
             onClick={() => onChange(item.tab)}
             style={{
               display: 'flex',

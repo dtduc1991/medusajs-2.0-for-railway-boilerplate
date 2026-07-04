@@ -27,7 +27,10 @@
       "Bash(node verify-ember.tmp.js)",
       "Bash(git -C \"c:\\\\Users\\\\duc.dangtrong\\\\Documents\\\\ProjectTeam\\\\medusajs-2.0-for-railway-boilerplate\" status --short)",
       "Bash(curl -s http://localhost:5173/ -o /dev/null -w \"dev server: %{http_code}\\\\n\")",
-      "Bash(curl -s http://localhost:9000/health -o /dev/null -w \"backend: %{http_code}\\\\n\")"
+      "Bash(curl -s http://localhost:9000/health -o /dev/null -w \"backend: %{http_code}\\\\n\")",
+      "Bash(node -e \"console.log\\(require.resolve\\('@playwright/test'\\)\\)\")",
+      "Bash(git -C \"/c/Users/duc.dangtrong/Documents/ProjectTeam/medusajs-2.0-for-railway-boilerplate\" status --short)",
+      "Edit(/.claude/skills/session-notes/**)"
     ]
   }
 }

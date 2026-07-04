@@ -66,19 +66,41 @@ this handoff carries.
   **not** retroactively show up under a subsequently-logged-in customer's order history. This is
   expected, not a bug — don't mistake it for one during future testing.
 
-## Verified (Playwright driver script against the real docker-compose backend, not just `tsc`)
+## Verified
 
-Wrote a throwaway driver script (`@playwright/test`'s `chromium` export, since `chromium-cli`
-wasn't available in this environment) exercising the full path: quick-add a drink → Bag → Pay →
-fill address (Germany) → real shipping options load → select Standard (total updates from €5.50
-to €15.50) → Place order → lands on confirmation with a real order number (`Order #2`) → bag
-empty. Then: You tab shows login/signup (not the old placeholder) → sign up a new test customer →
-lands logged in with real name/email, "No orders yet" (expected, guest checkout doesn't
-retroactively associate) → log out → log back in with the same credentials → same profile shown.
-Only console output was two expected 401s from the initial "am I logged in" check while logged
-out — not a real error.
+First pass was a throwaway Playwright driver script (`@playwright/test`'s `chromium` export,
+since `chromium-cli` wasn't available in this environment) exercising the full path: quick-add a
+drink → Bag → Pay → fill address (Germany) → real shipping options load → select Standard (total
+updates from €5.50 to €15.50) → Place order → lands on confirmation with a real order number
+(`Order #2`) → bag empty. Then: You tab shows login/signup (not the old placeholder) → sign up a
+new test customer → lands logged in with real name/email, "No orders yet" (expected, guest
+checkout doesn't retroactively associate) → log out → log back in with the same credentials →
+same profile shown. Only console output was two expected 401s from the initial "am I logged in"
+check while logged out — not a real error. Ran once headless, once headed (`headless: false`) so
+it was visibly watchable; same result both times.
 
-`npm run build` (`tsc -b && vite build`) passes clean.
+That throwaway script was then turned into a **real, committable e2e suite** — `new-storefront/`
+previously had zero test tooling of any kind. Added:
+- `@playwright/test` devDependency + `"test-e2e": "playwright test e2e"` script
+  (`new-storefront/package.json`), pinned to the same `^1.55.1` `storefront/` uses.
+- `new-storefront/playwright.config.ts` — no DB seed/reset fixtures (unlike `storefront/`'s
+  elaborate `global/setup.ts`+`storageState` project-dependency setup) since Ember doesn't own the
+  backend DB; `fullyParallel: false`/`workers: 1` since specs place real orders and create real
+  customers against shared backend state with no per-test isolation.
+- `new-storefront/e2e/checkout.spec.ts` + `auth.spec.ts` — real assertions (not console.log
+  counts), using `page.getByTestId(...)` throughout, matching `storefront/`'s kebab-case
+  `data-testid` convention exactly (e.g. `"cart-item"`, `"pay-button"`, `"customer-name"` — added
+  directly to the source components: `TabBar.tsx`, `MenuScreen.tsx`, `CartScreen.tsx`,
+  `CheckoutScreen.tsx`, `OrderConfirmationScreen.tsx`, `AccountScreen.tsx`).
+- The checkout spec includes a regression test for the stale-total bug (using
+  `expect.poll` to wait out the async refetch instead of racing it with a single read) and a form-
+  validation test; the auth spec covers the logged-out form, full signup→logout→login round trip,
+  and a wrong-password error path.
+- `new-storefront/.gitignore` gained `test-results`, `playwright-report`, `playwright/.auth`
+  (generated artifacts, same as `storefront/`'s equivalents).
+
+All 5 specs pass via `npm run test-e2e` against the docker-compose backend. `npm run build`
+(`tsc -b && vite build`) also passes clean.
 
 ## Open items / what the next agent should do
 

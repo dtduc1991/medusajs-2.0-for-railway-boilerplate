@@ -8,15 +8,16 @@ interface OrderConfirmationScreenProps {
 
 export function OrderConfirmationScreen({ displayId, onDone }: OrderConfirmationScreenProps) {
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 }}>
+    <div data-testid="order-confirmation" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 }}>
       <div style={{ width: 72, height: 72, borderRadius: 24, background: theme.green, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="Check" size={32} />
       </div>
       <div style={{ font: `700 22px ${theme.display}`, color: theme.ink, textAlign: 'center' }}>Order placed!</div>
-      <div style={{ font: `500 14px ${theme.body}`, color: theme.muted, textAlign: 'center' }}>
+      <div data-testid="order-display-id" style={{ font: `500 14px ${theme.body}`, color: theme.muted, textAlign: 'center' }}>
         Order #{displayId} is confirmed. We'll have it ready shortly.
       </div>
       <button
+        data-testid="back-to-menu-button"
         onClick={onDone}
         style={{
           marginTop: 6,

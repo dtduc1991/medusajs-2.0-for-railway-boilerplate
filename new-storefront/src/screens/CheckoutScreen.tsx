@@ -106,7 +106,7 @@ export function CheckoutScreen({ cart, onBack, onPlaced }: CheckoutScreenProps) 
   };
 
   return (
-    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div data-testid="checkout-container" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '4px 22px 10px' }}>
         <button onClick={onBack} style={circleBtn}>
           <Icon name="ArrowLeft" size={19} />
@@ -117,17 +117,18 @@ export function CheckoutScreen({ cart, onBack, onPlaced }: CheckoutScreenProps) 
       <div style={{ padding: '8px 22px 0', flex: 1, overflowY: 'auto' }}>
         <SectionLabel>CONTACT & DELIVERY ADDRESS</SectionLabel>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
-          <Field placeholder="Email" value={email} onChange={setEmail} type="email" />
+          <Field testId="email-input" placeholder="Email" value={email} onChange={setEmail} type="email" />
           <div style={{ display: 'flex', gap: 10 }}>
-            <Field placeholder="First name" value={firstName} onChange={setFirstName} />
-            <Field placeholder="Last name" value={lastName} onChange={setLastName} />
+            <Field testId="first-name-input" placeholder="First name" value={firstName} onChange={setFirstName} />
+            <Field testId="last-name-input" placeholder="Last name" value={lastName} onChange={setLastName} />
           </div>
-          <Field placeholder="Address" value={address1} onChange={setAddress1} />
+          <Field testId="address-input" placeholder="Address" value={address1} onChange={setAddress1} />
           <div style={{ display: 'flex', gap: 10 }}>
-            <Field placeholder="City" value={city} onChange={setCity} />
-            <Field placeholder="Postal code" value={postalCode} onChange={setPostalCode} />
+            <Field testId="city-input" placeholder="City" value={city} onChange={setCity} />
+            <Field testId="postal-code-input" placeholder="Postal code" value={postalCode} onChange={setPostalCode} />
           </div>
           <select
+            data-testid="country-select"
             value={countryCode}
             onChange={(e) => {
               setCountryCode(e.target.value);
@@ -145,6 +146,7 @@ export function CheckoutScreen({ cart, onBack, onPlaced }: CheckoutScreenProps) 
 
         {shippingOptions === null ? (
           <button
+            data-testid="continue-to-delivery-button"
             disabled={!canReview || loadingOptions}
             onClick={loadShippingOptions}
             style={{ ...primaryBtn, marginTop: 20, opacity: canReview ? 1 : 0.5 }}
@@ -160,6 +162,8 @@ export function CheckoutScreen({ cart, onBack, onPlaced }: CheckoutScreenProps) 
                 return (
                   <button
                     key={o.id}
+                    data-testid="shipping-option"
+                    data-selected={sel}
                     disabled={selectingShipping}
                     onClick={() => selectShippingOption(o.id)}
                     style={{
@@ -183,12 +187,13 @@ export function CheckoutScreen({ cart, onBack, onPlaced }: CheckoutScreenProps) 
           </>
         )}
 
-        {error && <div style={{ font: `500 13px ${theme.body}`, color: theme.accent, marginTop: 14 }}>{error}</div>}
+        {error && <div data-testid="checkout-error" style={{ font: `500 13px ${theme.body}`, color: theme.accent, marginTop: 14 }}>{error}</div>}
         <div style={{ height: 12 }} />
       </div>
 
       <div style={{ flexShrink: 0, padding: '14px 22px 30px', background: theme.cream, borderTop: `1px solid rgba(34,27,22,0.06)` }}>
         <button
+          data-testid="place-order-button"
           disabled={!shippingOptionId || selectingShipping || submitting}
           onClick={handlePlaceOrder}
           style={{ ...primaryBtn, opacity: shippingOptionId && !selectingShipping && !submitting ? 1 : 0.5 }}
@@ -201,9 +206,10 @@ export function CheckoutScreen({ cart, onBack, onPlaced }: CheckoutScreenProps) 
   );
 }
 
-function Field({ placeholder, value, onChange, type = 'text' }: { placeholder: string; value: string; onChange: (v: string) => void; type?: string }) {
+function Field({ placeholder, value, onChange, type = 'text', testId }: { placeholder: string; value: string; onChange: (v: string) => void; type?: string; testId: string }) {
   return (
     <input
+      data-testid={testId}
       type={type}
       placeholder={placeholder}
       value={value}

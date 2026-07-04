@@ -146,6 +146,7 @@ export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: Menu
             </div>
             <Placeholder tint={featured.tint} width={106} height={120} label={`${featured.handle}.jpg`} />
             <span
+              data-testid="featured-quick-add-button"
               onClick={(e) => {
                 e.stopPropagation();
                 onQuickAdd(featured);
@@ -175,7 +176,7 @@ export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: Menu
             <span style={{ font: `600 13px ${theme.body}`, color: theme.accent }}>See all</span>
           </div>
           {popular.map((d) => (
-            <div key={d.id} style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '14px 24px 0' }}>
+            <div key={d.id} data-testid="popular-drink-row" style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '14px 24px 0' }}>
               <button onClick={() => onOpenDrink(d.id)} style={{ ...resetBtn, display: 'flex', gap: 14, alignItems: 'center', flex: 1 }}>
                 <Placeholder tint={d.tint} width={62} height={62} />
                 <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
@@ -187,6 +188,7 @@ export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: Menu
                 </div>
               </button>
               <button
+                data-testid="quick-add-button"
                 onClick={() => onQuickAdd(d)}
                 style={{
                   width: 34,

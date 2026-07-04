@@ -13,7 +13,7 @@ interface AccountScreenProps {
 
 export function AccountScreen({ customer, onLogin, onSignup, onLogout }: AccountScreenProps) {
   return (
-    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div data-testid="account-container" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '8px 24px 0' }}>
         <div style={{ font: `700 28px ${theme.display}`, color: theme.ink, letterSpacing: '-0.03em' }}>You</div>
       </div>
@@ -41,10 +41,10 @@ function Profile({ customer, onLogout }: { customer: Customer; onLogout: () => v
           {customer.first_name?.[0] ?? customer.email[0].toUpperCase()}
         </div>
         <div>
-          <div style={{ font: `700 17px ${theme.display}`, color: theme.ink }}>
+          <div data-testid="customer-name" style={{ font: `700 17px ${theme.display}`, color: theme.ink }}>
             {[customer.first_name, customer.last_name].filter(Boolean).join(' ') || customer.email}
           </div>
-          <div style={{ font: `500 13px ${theme.body}`, color: theme.muted }}>{customer.email}</div>
+          <div data-testid="customer-email" style={{ font: `500 13px ${theme.body}`, color: theme.muted }}>{customer.email}</div>
         </div>
       </div>
 
@@ -54,11 +54,11 @@ function Profile({ customer, onLogout }: { customer: Customer; onLogout: () => v
         <div style={{ font: `500 13px ${theme.body}`, color: theme.muted, marginTop: 8 }}>Loading orders…</div>
       )}
       {orders?.length === 0 && (
-        <div style={{ font: `500 13px ${theme.body}`, color: theme.muted, marginTop: 8 }}>No orders yet.</div>
+        <div data-testid="no-orders-message" style={{ font: `500 13px ${theme.body}`, color: theme.muted, marginTop: 8 }}>No orders yet.</div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', marginTop: 8 }}>
         {orders?.map((o) => (
-          <div key={o.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: `1px solid ${theme.line}` }}>
+          <div key={o.id} data-testid="order-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: `1px solid ${theme.line}` }}>
             <div>
               <div style={{ font: `600 14px ${theme.body}`, color: theme.ink }}>Order #{o.display_id}</div>
               <div style={{ font: `500 12px ${theme.body}`, color: theme.muted, marginTop: 2 }}>
@@ -70,7 +70,7 @@ function Profile({ customer, onLogout }: { customer: Customer; onLogout: () => v
         ))}
       </div>
 
-      <button onClick={onLogout} style={{ ...resetBtn, marginTop: 24, color: theme.accent, font: `600 14px ${theme.body}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <button data-testid="logout-button" onClick={onLogout} style={{ ...resetBtn, marginTop: 24, color: theme.accent, font: `600 14px ${theme.body}`, display: 'flex', alignItems: 'center', gap: 8 }}>
         <Icon name="LogOut" size={16} />
         Log out
       </button>
@@ -118,17 +118,18 @@ function AuthForm({
 
       {mode === 'signup' && (
         <div style={{ display: 'flex', gap: 10 }}>
-          <input placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} style={fieldStyle} />
-          <input placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} style={fieldStyle} />
+          <input data-testid="first-name-input" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} style={fieldStyle} />
+          <input data-testid="last-name-input" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} style={fieldStyle} />
         </div>
       )}
-      <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={fieldStyle} />
-      <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={fieldStyle} />
+      <input data-testid="email-input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={fieldStyle} />
+      <input data-testid="password-input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={fieldStyle} />
 
-      {error && <div style={{ font: `500 13px ${theme.body}`, color: theme.accent }}>{error}</div>}
+      {error && <div data-testid="auth-error" style={{ font: `500 13px ${theme.body}`, color: theme.accent }}>{error}</div>}
 
       <button
         type="submit"
+        data-testid="auth-submit-button"
         disabled={submitting || !email || !password || (mode === 'signup' && (!firstName || !lastName))}
         style={{ ...primaryBtn, marginTop: 4, opacity: submitting ? 0.7 : 1 }}
       >
@@ -137,6 +138,7 @@ function AuthForm({
 
       <button
         type="button"
+        data-testid="auth-mode-toggle"
         onClick={() => {
           setMode(mode === 'login' ? 'signup' : 'login');
           setError(null);

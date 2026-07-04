@@ -65,7 +65,7 @@ export function CartScreen({ cart, onQty, onApplyPromo, promoError, onBrowse, on
       {/* Items */}
       <div style={{ padding: '8px 24px 0', flex: 1, overflowY: 'auto' }}>
         {items.map((it) => (
-          <div key={it.lineId} style={{ display: 'flex', gap: 13, alignItems: 'center', padding: '16px 0', borderBottom: `1px solid ${theme.line}` }}>
+          <div key={it.lineId} data-testid="cart-item" style={{ display: 'flex', gap: 13, alignItems: 'center', padding: '16px 0', borderBottom: `1px solid ${theme.line}` }}>
             <Placeholder tint={it.tint} width={58} height={58} radius={15} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ font: `600 15px ${theme.body}`, color: theme.ink }}>{it.title}</div>
@@ -137,7 +137,7 @@ export function CartScreen({ cart, onQty, onApplyPromo, promoError, onBrowse, on
 
       {/* Pay */}
       <div style={{ flexShrink: 0, padding: '14px 24px 30px', background: theme.cream, borderTop: `1px solid rgba(34,27,22,0.06)` }}>
-        <button onClick={onPay} style={{ width: '100%', height: 56, borderRadius: 16, background: theme.accent, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}>
+        <button data-testid="pay-button" onClick={onPay} style={{ width: '100%', height: 56, borderRadius: 16, background: theme.accent, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}>
           <Icon name="Lock" size={18} />
           <span style={{ font: `600 16px ${theme.body}` }}>Pay {money(cart?.total ?? 0, currencyCode)}</span>
         </button>
