@@ -11,9 +11,10 @@ interface CartScreenProps {
   onApplyPromo: (code: string) => void;
   promoError: string | null;
   onBrowse: () => void;
+  onPay: () => void;
 }
 
-export function CartScreen({ cart, onQty, onApplyPromo, promoError, onBrowse }: CartScreenProps) {
+export function CartScreen({ cart, onQty, onApplyPromo, promoError, onBrowse, onPay }: CartScreenProps) {
   const [promoCode, setPromoCode] = useState('');
   const [showPromoInput, setShowPromoInput] = useState(false);
 
@@ -136,7 +137,7 @@ export function CartScreen({ cart, onQty, onApplyPromo, promoError, onBrowse }: 
 
       {/* Pay */}
       <div style={{ flexShrink: 0, padding: '14px 24px 30px', background: theme.cream, borderTop: `1px solid rgba(34,27,22,0.06)` }}>
-        <button style={{ width: '100%', height: 56, borderRadius: 16, background: theme.accent, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}>
+        <button onClick={onPay} style={{ width: '100%', height: 56, borderRadius: 16, background: theme.accent, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9 }}>
           <Icon name="Lock" size={18} />
           <span style={{ font: `600 16px ${theme.body}` }}>Pay {money(cart?.total ?? 0, currencyCode)}</span>
         </button>

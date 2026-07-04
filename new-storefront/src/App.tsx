@@ -7,6 +7,9 @@ import { DrinkDetailScreen } from './screens/DrinkDetailScreen';
 import { RewardsScreen } from './screens/RewardsScreen';
 import { ChatScreen } from './screens/ChatScreen';
 import { CartScreen } from './screens/CartScreen';
+import { CheckoutScreen } from './screens/CheckoutScreen';
+import { OrderConfirmationScreen } from './screens/OrderConfirmationScreen';
+import { AccountScreen } from './screens/AccountScreen';
 import {
   addLineItem,
   applyPromoCode,
@@ -15,6 +18,7 @@ import {
   retrieveCart,
   type Cart,
 } from './lib/backend';
+import { getCurrentCustomer, login, logout, signup, type Customer } from './lib/auth';
 import type { Drink, Tab, View } from './types';
 
 export default function App() {
@@ -25,6 +29,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
   const [chatVariant, setChatVariant] = useState<'bubbles' | 'voice'>('bubbles');
+  const [customer, setCustomer] = useState<Customer | null>(null);
 
   useEffect(() => {
     Promise.all([listDrinks(), retrieveCart()])
@@ -34,6 +39,10 @@ export default function App() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
+
+    // Independent of the drinks/cart bootstrap above — a failed/slow auth
+    // check shouldn't block menu/cart from rendering.
+    getCurrentCustomer().then(setCustomer);
   }, []);
 
   // Only categories that a fetched drink actually belongs to — no point showing an
@@ -72,6 +81,17 @@ export default function App() {
 
   const goTab = (tab: Tab) => setView({ kind: 'tab', tab });
 
+  const handleLogin = async (email: string, password: string) => {
+    setCustomer(await login(email, password));
+  };
+  const handleSignup = async (fields: { email: string; password: string; first_name: string; last_name: string }) => {
+    setCustomer(await signup(fields));
+  };
+  const handleLogout = () => {
+    void logout();
+    setCustomer(null);
+  };
+
   const dark = view.kind === 'tab' && view.tab === 'chat' && chatVariant === 'voice';
 
   return (
@@ -97,6 +117,21 @@ export default function App() {
               goTab('bag');
             }}
           />
+        ) : view.kind === 'checkout' ? (
+          cart && cart.items.length > 0 ? (
+            <CheckoutScreen
+              cart={cart}
+              onBack={() => goTab('bag')}
+              onPlaced={(orderId, displayId) => {
+                setCart(null);
+                setView({ kind: 'orderConfirmation', orderId, displayId });
+              }}
+            />
+          ) : (
+            <StatusMessage text="Your bag is empty." />
+          )
+        ) : view.kind === 'orderConfirmation' ? (
+          <OrderConfirmationScreen displayId={view.displayId} onDone={() => goTab('menu')} />
         ) : (
           <>
             {/* Tabbed screens */}
@@ -128,23 +163,18 @@ export default function App() {
                 onApplyPromo={applyPromo}
                 promoError={promoError}
                 onBrowse={() => goTab('menu')}
+                onPay={() => setView({ kind: 'checkout' })}
               />
             )}
-            {view.tab === 'you' && <ComingSoon label="Profile" />}
+            {view.tab === 'you' && (
+              <AccountScreen customer={customer} onLogin={handleLogin} onSignup={handleSignup} onLogout={handleLogout} />
+            )}
 
             {/* Chat is full-bleed dark; other tabs show the nav bar */}
             {view.tab !== 'chat' && <TabBar active={view.tab} onChange={goTab} bagCount={bagCount} />}
           </>
         )}
       </PhoneFrame>
-    </div>
-  );
-}
-
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `600 16px ${theme.body}`, color: theme.muted }}>
-      {label} · coming soon
     </div>
   );
 }

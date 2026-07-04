@@ -9,7 +9,25 @@
       "Bash(curl -s 'http://localhost:9000/store/products?q=Sweatshirt&limit=1' -H 'x-publishable-api-key: __TRACKED_VAR__' -H 'x-region: reg_01KW91AZQ329WG1RCWA7Q33MDV')",
       "Bash(curl -s 'http://localhost:9000/store/products?q=Sweatshirt&limit=1&region_id=reg_01KW91AZQ329WG1RCWA7Q33MDV' -H 'x-publishable-api-key: __TRACKED_VAR__')",
       "Bash(curl -s 'http://localhost:9000/store/products?q=Sweatpants&limit=1&region_id=reg_01KW91AZQ329WG1RCWA7Q33MDV' -H 'x-publishable-api-key: __TRACKED_VAR__')",
-      "Bash(python3 -c \"import sys,json;d=json.load\\(sys.stdin\\);print\\(d['count']\\)\")"
+      "Bash(python3 -c \"import sys,json;d=json.load\\(sys.stdin\\);print\\(d['count']\\)\")",
+      "Bash(grep -n \"\\\\\"@medusajs/js-sdk\\\\\"\" storefront/package.json new-storefront/package.json)",
+      "Bash(find storefront/node_modules/@medusajs/js-sdk -maxdepth 0)",
+      "Bash(curl -s \"http://localhost:9000/key-exchange\")",
+      "Bash(curl -s \"http://localhost:9000/store/products?limit=100\" -H \"x-publishable-api-key: pk_f25a31c7d8e29806aea7f0f3a586d7037a3fb3c64d40c2b53f05535852687572\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d.get\\('count'\\)\\); print\\([p['title'] for p in d.get\\('products',[]\\)]\\)\")",
+      "Bash(curl -s http://localhost:5173/ -o /dev/null -w \"%{http_code}\\\\n\")",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(chromium-cli --help)",
+      "Bash(node -e \"console.log\\(require.resolve\\('playwright'\\)\\)\" --prefix)",
+      "Bash(node -e \"console.log\\(require.resolve\\('playwright-core'\\)\\)\")",
+      "Bash(node -e \"console.log\\(require.resolve\\('playwright'\\)\\)\")",
+      "Bash(node -e \"const pw = require\\('@playwright/test'\\); console.log\\(Object.keys\\(pw\\)\\)\")",
+      "Bash(node \"C:\\\\Users\\\\DUC~1.DAN\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-duc-dangtrong-Documents-ProjectTeam-medusajs-2-0-for-railway-boilerplate\\\\df6937f4-606a-4005-b1e8-6558ce9d3d5f\\\\scratchpad\\\\verify-ember.js\")",
+      "Bash(node verify-ember.tmp.js)",
+      "Bash(git -C \"c:\\\\Users\\\\duc.dangtrong\\\\Documents\\\\ProjectTeam\\\\medusajs-2.0-for-railway-boilerplate\" status --short)",
+      "Bash(curl -s http://localhost:5173/ -o /dev/null -w \"dev server: %{http_code}\\\\n\")",
+      "Bash(curl -s http://localhost:9000/health -o /dev/null -w \"backend: %{http_code}\\\\n\")"
     ]
   }
 }

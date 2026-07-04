@@ -57,7 +57,9 @@ export type Tab = 'menu' | 'rewards' | 'chat' | 'bag' | 'you';
 
 export type View =
   | { kind: 'tab'; tab: Tab }
-  | { kind: 'detail'; drinkId: string };
+  | { kind: 'detail'; drinkId: string }
+  | { kind: 'checkout' }
+  | { kind: 'orderConfirmation'; orderId: string; displayId: number };
 
 export interface RewardActivity {
   id: string;
