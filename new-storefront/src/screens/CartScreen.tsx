@@ -12,9 +12,11 @@ interface CartScreenProps {
   promoError: string | null;
   onBrowse: () => void;
   onPay: () => void;
+  /** Cosmetic pre-checkout estimate rate — sourced from the backend's loyalty config. */
+  pointsPerCurrencyUnit: number;
 }
 
-export function CartScreen({ cart, onQty, onApplyPromo, promoError, onBrowse, onPay }: CartScreenProps) {
+export function CartScreen({ cart, onQty, onApplyPromo, promoError, onBrowse, onPay, pointsPerCurrencyUnit }: CartScreenProps) {
   const [promoCode, setPromoCode] = useState('');
   const [showPromoInput, setShowPromoInput] = useState(false);
 
@@ -42,9 +44,9 @@ export function CartScreen({ cart, onQty, onApplyPromo, promoError, onBrowse, on
     );
   }
 
-  // Stars-earned is a loyalty-ledger concept with no backend module yet (see
-  // new-storefront/docs/backend-integration.md) — kept as a local-only estimate.
-  const stars = Math.round((cart?.subtotal ?? 0) * 2);
+  // Cosmetic pre-checkout estimate — the real award happens server-side in
+  // award-loyalty-points.ts using the same configurable rate (see lib/loyalty.ts).
+  const stars = Math.round((cart?.subtotal ?? 0) * pointsPerCurrencyUnit);
 
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

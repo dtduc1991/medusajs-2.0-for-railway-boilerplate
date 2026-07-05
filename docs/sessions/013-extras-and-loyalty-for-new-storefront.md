@@ -153,14 +153,55 @@ Not just typecheck/build — exercised against the real docker-compose stack:
    which would have failed pre-fix (points would've accrued to the throwaway guest customer
    record instead). Full 10-spec suite (`npx playwright test e2e`) passes.
 
+## Follow-up (same session, later pass): items 3 and 4 fixed
+
+3. **Redemption flow built.** `backend/src/api/store/loyalty/redeem/route.ts` (new, authenticated
+   `POST`) debits `REWARD_THRESHOLD` points as a `LoyaltyTransaction` with
+   `reason: "reward.redeemed"`, `amount: -REWARD_THRESHOLD`, 400s if the account's balance is
+   short. No workflow — plain `MedusaService` calls, matching the existing GET route's and the
+   awarding subscriber's style (no locking/transaction wrapping anywhere in this ledger yet; a
+   known, accepted race-condition risk on rapid double-clicks, same class of issue as the
+   subscriber's own read-then-write). `new-storefront/src/lib/loyalty.ts` gained `redeemReward()`
+   and a shared `toActivity()` mapper (was inlined) with a `reason -> label` table so
+   `"reward.redeemed"` now renders as "Free drink redeemed" in Activity, not the raw reason
+   string. `RewardsScreen.tsx` shows a "Redeem free drink" button once `balance >= rewardThreshold`
+   (replacing the "N more stars" copy for that state) with pending/error states.
+4. **Loyalty rate/threshold are now env-configurable.** New
+   `backend/src/modules/loyalty/config.ts` reads `LOYALTY_POINTS_PER_CURRENCY_UNIT` (default `2`)
+   and `LOYALTY_REWARD_THRESHOLD` (default `8`) — both documented in `backend/.env.template`.
+   Both the awarding subscriber and the new redeem route import from here instead of hardcoding.
+   Added a **public** (no-auth) `GET /store/loyalty/config` so the storefront — including guests,
+   for the cart's pre-checkout "Earns +N stars" estimate — can read the same numbers instead of
+   duplicating them; `App.tsx` fetches it once at bootstrap (falling back to the same defaults if
+   the fetch fails) and threads it down to `CartScreen` (`pointsPerCurrencyUnit`) and
+   `RewardsScreen` (`rewardThreshold`), replacing both files' hardcoded constants.
+   - **Gotcha hit and fixed**: a middleware route entry with only `matcher` + `middlewares` (no
+     `methods`) gets registered by Medusa as a plain Express `app.use(matcher, ...)` mount, which
+     matches by path *prefix* — so a bare `"/store/loyalty"` matcher was also forcing auth on
+     `/store/loyalty/config` (caught this via a live `curl` against the rebuilt container, not
+     typecheck). Fix: add explicit `methods: ["GET"]` / `["POST"]` to each middleware route entry
+     in `backend/src/api/middlewares.ts` so Medusa registers them as exact-path `app.get`/`app.post`
+     instead. Worth remembering for any future custom route under a shared prefix with a public
+     sibling.
+
+Verified end-to-end against the rebuilt docker-compose backend (not just typecheck): rebuilt the
+backend image twice (once per fix), confirmed `curl` against `/store/loyalty/config` (200,
+unauthenticated), `/store/loyalty` and `/store/loyalty/redeem` (401 unauthenticated, as intended).
+Added `e2e/rewards.spec.ts`'s "redeeming a reward debits the threshold and logs an activity row"
+(signs up, places one order — which nets well over the 8-point default threshold at seeded coffee
+prices — clicks redeem, asserts the balance drop equals the value read back from
+`GET /store/loyalty/config`, and asserts the new activity row reads "Free drink redeemed"). Full
+suite is now 11 specs, all passing (`cd new-storefront && npx playwright test e2e`).
+
 ## Open items / what the next agent should do
 
-1. ~~Extras quantity doesn't sync after add-time~~ — fixed above.
-2. ~~Loyalty points only ever accrue to orders placed while already logged in~~ — fixed above.
-3. **No redemption flow for loyalty points** — the ledger only ever credits (via
-   `order.placed`); there's no UI or backend workflow to debit points for a free-drink reward,
-   matching the original mock's cosmetic-only "Free drink redeemed" activity row having no real
-   trigger anywhere in Ember today.
-4. **Loyalty point rate/threshold are hardcoded** (`Math.round(total * 2)` in the subscriber,
-   `REWARD_THRESHOLD = 8` in `RewardsScreen.tsx`) — fine for this demo scope, but not
-   configurable without a code change if a real loyalty program's economics need tuning.
+1. ~~Extras quantity doesn't sync after add-time~~ — fixed in this session.
+2. ~~Loyalty points only ever accrue to orders placed while already logged in~~ — fixed in this
+   session.
+3. ~~No redemption flow for loyalty points~~ — fixed in this session.
+4. ~~Loyalty point rate/threshold are hardcoded~~ — fixed in this session.
+
+None of the original four open items remain. Possible future work, not asked for and not built:
+a real fulfillment/coupon behind a redemption (today it's ledger-only, matching the original
+mock's cosmetic scope), and wrapping the ledger's award/redeem read-then-write sequences in a
+lock or workflow if concurrent-request correctness ever matters beyond this demo.

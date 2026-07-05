@@ -22,7 +22,11 @@ import {
   type Cart,
 } from './lib/backend';
 import { getCurrentCustomer, login, logout, signup, type Customer } from './lib/auth';
+import { getLoyaltyConfig, type LoyaltyConfig } from './lib/loyalty';
 import type { Drink, ExtraProduct, Tab, View } from './types';
+
+/** Used until the real config loads (and if it fails to) — matches the backend's own default. */
+const DEFAULT_LOYALTY_CONFIG: LoyaltyConfig = { pointsPerCurrencyUnit: 2, rewardThreshold: 8 };
 
 export default function App() {
   const [view, setView] = useState<View>({ kind: 'tab', tab: 'menu' });
@@ -34,6 +38,7 @@ export default function App() {
   const [promoError, setPromoError] = useState<string | null>(null);
   const [chatVariant, setChatVariant] = useState<'bubbles' | 'voice'>('bubbles');
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [loyaltyConfig, setLoyaltyConfig] = useState<LoyaltyConfig>(DEFAULT_LOYALTY_CONFIG);
 
   useEffect(() => {
     Promise.all([listDrinks(), listExtras(), retrieveCart()])
@@ -44,6 +49,12 @@ export default function App() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
+
+    // Public config, independent of the drinks/cart bootstrap — a guest with
+    // no account still needs it for the cart's "Earns +N stars" estimate.
+    getLoyaltyConfig()
+      .then(setLoyaltyConfig)
+      .catch(() => {});
 
     // Independent of the drinks/cart bootstrap above — a failed/slow auth
     // check shouldn't block menu/cart from rendering.
@@ -161,7 +172,9 @@ export default function App() {
                 onQuickAdd={quickAdd}
               />
             )}
-            {view.tab === 'rewards' && <RewardsScreen customer={customer} />}
+            {view.tab === 'rewards' && (
+              <RewardsScreen customer={customer} rewardThreshold={loyaltyConfig.rewardThreshold} />
+            )}
             {view.tab === 'chat' && (
               <ChatScreen
                 drinks={drinks}
@@ -182,6 +195,7 @@ export default function App() {
                 promoError={promoError}
                 onBrowse={() => goTab('menu')}
                 onPay={() => setView({ kind: 'checkout' })}
+                pointsPerCurrencyUnit={loyaltyConfig.pointsPerCurrencyUnit}
               />
             )}
             {view.tab === 'you' && (

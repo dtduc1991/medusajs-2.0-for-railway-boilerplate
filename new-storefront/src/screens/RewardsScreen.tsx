@@ -1,17 +1,16 @@
 import { useEffect, useState } from 'react';
 import { theme } from '../theme';
 import { Icon } from '../components/Icon';
-import { getLoyaltyAccount, type LoyaltyAccount } from '../lib/loyalty';
+import { getLoyaltyAccount, redeemReward, type LoyaltyAccount } from '../lib/loyalty';
 import type { Customer } from '../lib/auth';
-
-/** Display-only cycle length — the backend ledger just tracks a running point balance. */
-const REWARD_THRESHOLD = 8;
 
 interface RewardsScreenProps {
   customer: Customer | null;
+  /** Points required to redeem a free drink — sourced from the backend's loyalty config. */
+  rewardThreshold: number;
 }
 
-export function RewardsScreen({ customer }: RewardsScreenProps) {
+export function RewardsScreen({ customer, rewardThreshold }: RewardsScreenProps) {
   if (!customer) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 }}>
@@ -26,12 +25,14 @@ export function RewardsScreen({ customer }: RewardsScreenProps) {
     );
   }
 
-  return <RewardsContent customer={customer} />;
+  return <RewardsContent customer={customer} rewardThreshold={rewardThreshold} />;
 }
 
-function RewardsContent({ customer }: { customer: Customer }) {
+function RewardsContent({ customer, rewardThreshold }: { customer: Customer; rewardThreshold: number }) {
   const [account, setAccount] = useState<LoyaltyAccount | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [redeeming, setRedeeming] = useState(false);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
 
   useEffect(() => {
     setAccount(null);
@@ -42,8 +43,19 @@ function RewardsContent({ customer }: { customer: Customer }) {
   }, [customer.id]);
 
   const balance = account?.balance ?? 0;
-  const progress = balance % REWARD_THRESHOLD;
-  const starsToReward = REWARD_THRESHOLD - progress;
+  const canRedeem = balance >= rewardThreshold;
+  // Once redeemable, show a full bar rather than wrapping back to 0/threshold.
+  const progress = canRedeem ? rewardThreshold : balance % rewardThreshold;
+  const starsToReward = rewardThreshold - progress;
+
+  const handleRedeem = () => {
+    setRedeeming(true);
+    setRedeemError(null);
+    redeemReward()
+      .then(setAccount)
+      .catch((e) => setRedeemError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setRedeeming(false));
+  };
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
@@ -91,13 +103,40 @@ function RewardsContent({ customer }: { customer: Customer }) {
           <Icon name="Star" size={24} color={theme.gold} />
         </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 18 }}>
-          {Array.from({ length: REWARD_THRESHOLD }).map((_, i) => (
+          {Array.from({ length: rewardThreshold }).map((_, i) => (
             <Icon key={i} name="Star" size={22} color={i < progress ? theme.gold : 'rgba(244,239,230,0.22)'} />
           ))}
         </div>
-        <div style={{ font: `500 13px ${theme.body}`, color: 'rgba(244,239,230,0.75)', marginTop: 14 }}>
-          <span style={{ color: '#fff', fontWeight: 600 }}>{starsToReward} more stars</span> until your next free drink
-        </div>
+        {canRedeem ? (
+          <button
+            data-testid="redeem-reward-button"
+            onClick={handleRedeem}
+            disabled={redeeming}
+            style={{
+              marginTop: 14,
+              width: '100%',
+              height: 44,
+              borderRadius: 14,
+              border: 'none',
+              background: theme.gold,
+              color: theme.ink,
+              font: `700 14px ${theme.body}`,
+              cursor: redeeming ? 'default' : 'pointer',
+              opacity: redeeming ? 0.7 : 1,
+            }}
+          >
+            {redeeming ? 'Redeeming…' : 'Redeem free drink'}
+          </button>
+        ) : (
+          <div style={{ font: `500 13px ${theme.body}`, color: 'rgba(244,239,230,0.75)', marginTop: 14 }}>
+            <span style={{ color: '#fff', fontWeight: 600 }}>{starsToReward} more stars</span> until your next free drink
+          </div>
+        )}
+        {redeemError && (
+          <div data-testid="redeem-error" style={{ font: `500 12px ${theme.body}`, color: theme.gold, marginTop: 8 }}>
+            {redeemError}
+          </div>
+        )}
       </div>
 
       {/* Offers */}

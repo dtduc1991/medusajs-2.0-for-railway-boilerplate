@@ -2,12 +2,14 @@ import type { SubscriberArgs, SubscriberConfig } from "@medusajs/medusa";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { LOYALTY_MODULE } from "../modules/loyalty";
 import type LoyaltyModuleService from "../modules/loyalty/service";
+import { POINTS_PER_CURRENCY_UNIT } from "../modules/loyalty/config";
 
 /**
- * Awards loyalty points on every placed order. The rate (2 points per unit of
- * currency) matches the cosmetic "Earns +N stars" estimate new-storefront's
- * CartScreen already showed before this ledger existed, so the number a
- * customer saw pre-checkout keeps matching what they actually earn.
+ * Awards loyalty points on every placed order. The rate is configurable (see
+ * modules/loyalty/config.ts) but defaults to matching the cosmetic
+ * "Earns +N stars" estimate new-storefront's CartScreen shows pre-checkout
+ * (also sourced from that same config via GET /store/loyalty/config), so the
+ * number a customer saw keeps matching what they actually earn.
  */
 export default async function awardLoyaltyPointsHandler({
   event: { data },
@@ -26,7 +28,7 @@ export default async function awardLoyaltyPointsHandler({
 
   if (!order?.customer_id) return;
 
-  const pointsEarned = Math.round(order.total * 2);
+  const pointsEarned = Math.round(order.total * POINTS_PER_CURRENCY_UNIT);
   if (pointsEarned <= 0) return;
 
   let [account] = await loyaltyModuleService.listLoyaltyAccounts({ customer_id: order.customer_id });
