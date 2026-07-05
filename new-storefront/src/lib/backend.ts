@@ -236,14 +236,47 @@ export async function removeLineItem(cartId: string, lineId: string): Promise<Ca
   return fetchCart(cartId);
 }
 
+/**
+ * Changing a drink's cart quantity also scales its linked extras to match —
+ * extras are added 1:1 with the drink's quantity at add-time (see
+ * addDrinkWithExtras), so keeping them locked to the parent's new quantity
+ * here preserves that ratio (e.g. 2 lattes with an extra shot -> 2 shots).
+ */
 export async function changeLineItemQty(lineId: string, quantity: number): Promise<Cart> {
   const cartId = getCartId();
   if (!cartId) throw new Error('No cart to update');
   if (quantity <= 0) {
     return removeLineItem(cartId, lineId);
   }
+  const { cart } = await sdk.store.cart.retrieve(cartId, { fields: '*items' });
+  const linkedExtras = (cart.items ?? []).filter(
+    (item: any) => item.metadata?.parent_line_item_id === lineId
+  );
   await sdk.store.cart.updateLineItem(cartId, lineId, { quantity });
+  for (const extra of linkedExtras) {
+    await sdk.store.cart.updateLineItem(cartId, extra.id, { quantity });
+  }
   return fetchCart(cartId);
+}
+
+/**
+ * Associates the current cart with the now-authenticated customer via Medusa's
+ * built-in transfer-cart-customer workflow (POST /store/carts/:id/customer).
+ * Medusa only sets cart.customer_id from the auth context at cart-*creation*
+ * time, so a cart started as a guest never picks up a login after the fact
+ * without this — call it right after login/signup. Idempotent no-op server-side
+ * if the cart already belongs to this customer; returns null if there's no
+ * local cart or the transfer fails (e.g. a stale/already-completed cart id).
+ */
+export async function transferCartToCustomer(): Promise<Cart | null> {
+  const cartId = getCartId();
+  if (!cartId) return null;
+  try {
+    const { cart } = await sdk.store.cart.transferCart(cartId);
+    return toCart(cart);
+  } catch {
+    return null;
+  }
 }
 
 export async function applyPromoCode(code: string): Promise<Cart> {

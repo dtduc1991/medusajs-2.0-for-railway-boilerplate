@@ -129,16 +129,34 @@ Not just typecheck/build — exercised against the real docker-compose stack:
    path, same as Railway) and `pnpm start`'s `init-backend` ran migrations at container startup
    without error — this is stronger verification than a bare local typecheck.
 
+## Follow-up (same session, later pass): items 1 and 2 fixed
+
+1. **Extras now scale with drink quantity.** `new-storefront/src/lib/backend.ts`'s
+   `changeLineItemQty` looks up any cart items whose `metadata.parent_line_item_id` matches the
+   line being changed and applies the same new quantity to them before refetching the cart — so
+   e.g. bumping 1 latte-with-extra-shot to 2 also bumps the shot to 2. Removal (`quantity <= 0`)
+   was already handled by the pre-existing cascade-delete in `removeLineItem`. Verified with a new
+   `e2e/extras.spec.ts` test that adds a drink+extra, clicks the cart's qty-plus button, and reads
+   the cart back directly via `GET /store/carts/:id` (publishable-key header, no SDK) to assert
+   both line items' `quantity` match — the UI itself never displays an extra's quantity, so
+   asserting through the API was the only way to actually check this.
+2. **Loyalty points now survive login-after-cart-creation.** Root cause was as suspected (Medusa
+   fixes `cart.customer_id` at cart-*creation* time), but the fix was much smaller than it looked:
+   Medusa core already ships `POST /store/carts/:id/customer` (the
+   `transferCartCustomerWorkflow`, idempotent no-op if the cart already belongs to the caller),
+   exposed on the JS SDK as `sdk.store.cart.transferCart(id)`. Added
+   `transferCartToCustomer()` in `backend.ts` (returns `null` on no local cart / a stale-cart
+   error) and call it right after `login()`/`signup()` succeed in `App.tsx`'s `handleLogin`/
+   `handleSignup`, applying the returned cart to state. No custom backend code needed. Verified
+   with a new `e2e/rewards.spec.ts` test: quick-add a drink *before* signing up (guest-owned
+   cart), sign up, then place the order — asserts a nonzero star balance and one activity row,
+   which would have failed pre-fix (points would've accrued to the throwaway guest customer
+   record instead). Full 10-spec suite (`npx playwright test e2e`) passes.
+
 ## Open items / what the next agent should do
 
-1. **Extras quantity doesn't sync after add-time** (see "Known, accepted limitation" above) — if
-   a future requirement wants changing a drink's cart quantity to also scale its extras, that's
-   unbuilt.
-2. **Loyalty points only ever accrue to orders placed while already logged in** — same root
-   cause as session 012's open item #1 (no guest→customer cart transfer). A cart created as a
-   guest and later associated with a login won't retroactively earn points for past orders,
-   because Medusa only sets `cart.customer_id` from the auth context at cart-*creation* time
-   (verified by reading `@medusajs/medusa`'s `store/carts` `POST` route source this session).
+1. ~~Extras quantity doesn't sync after add-time~~ — fixed above.
+2. ~~Loyalty points only ever accrue to orders placed while already logged in~~ — fixed above.
 3. **No redemption flow for loyalty points** — the ledger only ever credits (via
    `order.placed`); there's no UI or backend workflow to debit points for a free-drink reward,
    matching the original mock's cosmetic-only "Free drink redeemed" activity row having no real

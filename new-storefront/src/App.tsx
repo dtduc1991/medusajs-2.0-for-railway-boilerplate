@@ -18,6 +18,7 @@ import {
   listDrinks,
   listExtras,
   retrieveCart,
+  transferCartToCustomer,
   type Cart,
 } from './lib/backend';
 import { getCurrentCustomer, login, logout, signup, type Customer } from './lib/auth';
@@ -90,11 +91,18 @@ export default function App() {
 
   const goTab = (tab: Tab) => setView({ kind: 'tab', tab });
 
+  // A cart created before login/signup is otherwise never attributed to the
+  // customer (Medusa fixes cart->customer at cart-creation time), so any order
+  // placed from it wouldn't earn loyalty points. Transfer it right after auth.
   const handleLogin = async (email: string, password: string) => {
     setCustomer(await login(email, password));
+    const transferred = await transferCartToCustomer();
+    if (transferred) setCart(transferred);
   };
   const handleSignup = async (fields: { email: string; password: string; first_name: string; last_name: string }) => {
     setCustomer(await signup(fields));
+    const transferred = await transferCartToCustomer();
+    if (transferred) setCart(transferred);
   };
   const handleLogout = () => {
     void logout();
