@@ -11,19 +11,22 @@ import { CheckoutScreen } from './screens/CheckoutScreen';
 import { OrderConfirmationScreen } from './screens/OrderConfirmationScreen';
 import { AccountScreen } from './screens/AccountScreen';
 import {
+  addDrinkWithExtras,
   addLineItem,
   applyPromoCode,
   changeLineItemQty,
   listDrinks,
+  listExtras,
   retrieveCart,
   type Cart,
 } from './lib/backend';
 import { getCurrentCustomer, login, logout, signup, type Customer } from './lib/auth';
-import type { Drink, Tab, View } from './types';
+import type { Drink, ExtraProduct, Tab, View } from './types';
 
 export default function App() {
   const [view, setView] = useState<View>({ kind: 'tab', tab: 'menu' });
   const [drinks, setDrinks] = useState<Drink[]>([]);
+  const [extras, setExtras] = useState<ExtraProduct[]>([]);
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,9 +35,10 @@ export default function App() {
   const [customer, setCustomer] = useState<Customer | null>(null);
 
   useEffect(() => {
-    Promise.all([listDrinks(), retrieveCart()])
-      .then(([fetchedDrinks, fetchedCart]) => {
+    Promise.all([listDrinks(), listExtras(), retrieveCart()])
+      .then(([fetchedDrinks, fetchedExtras, fetchedCart]) => {
         setDrinks(fetchedDrinks);
+        setExtras(fetchedExtras);
         setCart(fetchedCart);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
@@ -56,6 +60,11 @@ export default function App() {
 
   const addVariantToCart = async (variantId: string, quantity: number) => {
     const next = await addLineItem(variantId, quantity);
+    setCart(next);
+  };
+
+  const addDrinkWithExtrasToCart = async (variantId: string, quantity: number, extraVariantIds: string[]) => {
+    const next = await addDrinkWithExtras(variantId, quantity, extraVariantIds);
     setCart(next);
   };
 
@@ -111,9 +120,10 @@ export default function App() {
         ) : view.kind === 'detail' ? (
           <DrinkDetailScreen
             drink={byId(view.drinkId)!}
+            extras={extras}
             onBack={() => goTab('menu')}
-            onAdd={(variantId, quantity) => {
-              void addVariantToCart(variantId, quantity);
+            onAdd={(variantId, quantity, extraVariantIds) => {
+              void addDrinkWithExtrasToCart(variantId, quantity, extraVariantIds);
               goTab('bag');
             }}
           />
@@ -143,7 +153,7 @@ export default function App() {
                 onQuickAdd={quickAdd}
               />
             )}
-            {view.tab === 'rewards' && <RewardsScreen />}
+            {view.tab === 'rewards' && <RewardsScreen customer={customer} />}
             {view.tab === 'chat' && (
               <ChatScreen
                 drinks={drinks}

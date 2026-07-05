@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { theme } from '../theme';
 import { Icon } from '../components/Icon';
 import { Placeholder } from '../components/Placeholder';
-import { EXTRAS, money } from '../data';
-import type { Drink, Size, Milk } from '../types';
+import { money } from '../data';
+import type { Drink, ExtraProduct, Size, Milk } from '../types';
 
 const SIZES: { size: Size; oz: string }[] = [
   { size: 'Small', oz: '12 oz' },
@@ -14,23 +14,23 @@ const MILKS: Milk[] = ['Oat', 'Whole', 'Almond', 'Lactose-free'];
 
 interface DrinkDetailScreenProps {
   drink: Drink;
+  /** Real, variant-backed add-ons fetched from the backend (see lib/backend.ts's listExtras()). */
+  extras: ExtraProduct[];
   onBack: () => void;
-  /** Adds the real backend variant matching the chosen size/milk to the cart. */
-  onAdd: (variantId: string, quantity: number) => void;
+  /** Adds the real backend variant matching the chosen size/milk, plus any selected extras, to the cart. */
+  onAdd: (variantId: string, quantity: number, extraVariantIds: string[]) => void;
 }
 
-export function DrinkDetailScreen({ drink, onBack, onAdd }: DrinkDetailScreenProps) {
+export function DrinkDetailScreen({ drink, extras, onBack, onAdd }: DrinkDetailScreenProps) {
   const [temp, setTemp] = useState<'Iced' | 'Hot'>('Iced');
   const [size, setSize] = useState<Size>('Medium');
   const [milk, setMilk] = useState<Milk>('Oat');
-  const [extraIds, setExtraIds] = useState<Set<string>>(new Set(['shot']));
+  const [extraIds, setExtraIds] = useState<Set<string>>(() => new Set(extras[0] ? [extras[0].id] : []));
   const [qty, setQty] = useState(1);
 
   const variant = drink.variants.find((v) => v.size === size && v.milk === milk);
-  // Extras have no backend price representation yet (see new-storefront/docs/backend-integration.md);
-  // they still preview here for the customize UX but aren't sent when adding to the real cart.
-  const extras = EXTRAS.filter((e) => extraIds.has(e.id));
-  const unitPrice = (variant?.price ?? drink.price) + extras.reduce((s, e) => s + e.price, 0);
+  const selectedExtras = extras.filter((e) => extraIds.has(e.id));
+  const unitPrice = (variant?.price ?? drink.price) + selectedExtras.reduce((s, e) => s + e.price, 0);
   const total = unitPrice * qty;
 
   const toggleExtra = (id: string) =>
@@ -149,7 +149,7 @@ export function DrinkDetailScreen({ drink, onBack, onAdd }: DrinkDetailScreenPro
 
         {/* Extras */}
         <div style={{ marginTop: 4 }}>
-          {EXTRAS.map((e) => {
+          {extras.map((e) => {
             const on = extraIds.has(e.id);
             return (
               <div
@@ -199,8 +199,9 @@ export function DrinkDetailScreen({ drink, onBack, onAdd }: DrinkDetailScreenPro
           </button>
         </div>
         <button
+          data-testid="add-to-bag-button"
           disabled={!variant}
-          onClick={() => variant && onAdd(variant.id, qty)}
+          onClick={() => variant && onAdd(variant.id, qty, selectedExtras.map((e) => e.id))}
           style={{
             flex: 1,
             height: 54,

@@ -1,9 +1,49 @@
+import { useEffect, useState } from 'react';
 import { theme } from '../theme';
 import { Icon } from '../components/Icon';
-import { USER, REWARD_ACTIVITY } from '../data';
+import { getLoyaltyAccount, type LoyaltyAccount } from '../lib/loyalty';
+import type { Customer } from '../lib/auth';
 
-export function RewardsScreen() {
-  const filled = USER.rewardThreshold - USER.starsToReward;
+/** Display-only cycle length — the backend ledger just tracks a running point balance. */
+const REWARD_THRESHOLD = 8;
+
+interface RewardsScreenProps {
+  customer: Customer | null;
+}
+
+export function RewardsScreen({ customer }: RewardsScreenProps) {
+  if (!customer) {
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 }}>
+        <div style={{ width: 64, height: 64, borderRadius: 20, background: theme.accentSoft, color: theme.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="Star" size={28} />
+        </div>
+        <div style={{ font: `700 20px ${theme.display}`, color: theme.ink }}>Log in to see your rewards</div>
+        <div data-testid="rewards-login-prompt" style={{ font: `400 14px ${theme.body}`, color: theme.muted, textAlign: 'center' }}>
+          Your star balance and activity are tied to your account — head to the You tab to log in or sign up.
+        </div>
+      </div>
+    );
+  }
+
+  return <RewardsContent customer={customer} />;
+}
+
+function RewardsContent({ customer }: { customer: Customer }) {
+  const [account, setAccount] = useState<LoyaltyAccount | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAccount(null);
+    setError(null);
+    getLoyaltyAccount()
+      .then(setAccount)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }, [customer.id]);
+
+  const balance = account?.balance ?? 0;
+  const progress = balance % REWARD_THRESHOLD;
+  const starsToReward = REWARD_THRESHOLD - progress;
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
@@ -11,7 +51,7 @@ export function RewardsScreen() {
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '10px 24px 0' }}>
         <div style={{ font: `700 30px ${theme.display}`, color: theme.ink, letterSpacing: '-0.03em' }}>Rewards</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: theme.sub, font: `600 12px ${theme.body}` }}>
-          <span>{USER.firstName.toUpperCase()}</span>
+          <span>{(customer.first_name ?? customer.email).toUpperCase()}</span>
           <div
             style={{
               width: 30,
@@ -25,7 +65,7 @@ export function RewardsScreen() {
               font: `700 13px ${theme.display}`,
             }}
           >
-            {USER.firstName[0]}
+            {(customer.first_name ?? customer.email)[0]}
           </div>
         </div>
       </div>
@@ -45,16 +85,18 @@ export function RewardsScreen() {
         <div style={{ position: 'absolute', right: -30, top: -30, width: 120, height: 120, borderRadius: '50%', background: 'rgba(233,162,59,0.12)' }} />
         <div style={{ font: `700 11px ${theme.body}`, letterSpacing: '0.12em', color: theme.gold }}>STAR BALANCE</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
-          <span style={{ font: `700 42px ${theme.display}`, color: theme.cream, letterSpacing: '-0.02em' }}>{USER.stars}</span>
+          <span data-testid="star-balance" style={{ font: `700 42px ${theme.display}`, color: theme.cream, letterSpacing: '-0.02em' }}>
+            {account === null && !error ? '…' : balance}
+          </span>
           <Icon name="Star" size={24} color={theme.gold} />
         </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 18 }}>
-          {Array.from({ length: USER.rewardThreshold }).map((_, i) => (
-            <Icon key={i} name="Star" size={22} color={i < filled ? theme.gold : 'rgba(244,239,230,0.22)'} />
+          {Array.from({ length: REWARD_THRESHOLD }).map((_, i) => (
+            <Icon key={i} name="Star" size={22} color={i < progress ? theme.gold : 'rgba(244,239,230,0.22)'} />
           ))}
         </div>
         <div style={{ font: `500 13px ${theme.body}`, color: 'rgba(244,239,230,0.75)', marginTop: 14 }}>
-          <span style={{ color: '#fff', fontWeight: 600 }}>{USER.starsToReward} more stars</span> until your next free drink
+          <span style={{ color: '#fff', fontWeight: 600 }}>{starsToReward} more stars</span> until your next free drink
         </div>
       </div>
 
@@ -74,10 +116,19 @@ export function RewardsScreen() {
 
       {/* Activity */}
       <div style={{ font: `700 17px ${theme.display}`, color: theme.ink, padding: '22px 24px 0' }}>Activity</div>
-      {REWARD_ACTIVITY.map((a) => {
+      {error && <div style={{ font: `500 13px ${theme.body}`, color: theme.accent, padding: '8px 24px 0' }}>{error}</div>}
+      {!error && account === null && (
+        <div style={{ font: `500 13px ${theme.body}`, color: theme.muted, padding: '8px 24px 0' }}>Loading…</div>
+      )}
+      {account?.activity.length === 0 && (
+        <div data-testid="no-activity-message" style={{ font: `500 13px ${theme.body}`, color: theme.muted, padding: '8px 24px 0' }}>
+          No activity yet.
+        </div>
+      )}
+      {account?.activity.map((a) => {
         const earned = a.delta > 0;
         return (
-          <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 24px 0' }}>
+          <div key={a.id} data-testid="reward-activity-row" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 24px 0' }}>
             <div
               style={{
                 width: 38,

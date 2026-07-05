@@ -1,6 +1,6 @@
 import { sdk } from './sdk';
 import { getCartId, removeCartId, setCartId } from './cartStorage';
-import type { CartItem, Drink, DrinkVariant, Milk, Size } from '../types';
+import type { CartItem, Drink, DrinkVariant, ExtraProduct, Milk, Size } from '../types';
 
 /** Cosmetic-only tints keyed by product handle — Medusa has no "photo tint" field. */
 const TINTS: Record<string, string> = {
@@ -85,6 +85,29 @@ export async function listDrinks(): Promise<Drink[]> {
   return products.map(toDrink).filter((d: Drink) => d.variants.length > 0);
 }
 
+/**
+ * Extras (add-ons) are seeded as their own single-variant products in a
+ * dedicated "Extras" category (see backend/src/scripts/seed-coffee.ts) so
+ * they get a real price/tax representation while staying excluded from
+ * listDrinks() (they have no Size/Milk variants).
+ */
+export async function listExtras(): Promise<ExtraProduct[]> {
+  const region_id = await getRegionId();
+  const { products } = await sdk.store.product.list({
+    region_id,
+    limit: 100,
+    fields: '*variants.calculated_price,*categories',
+  });
+  return products
+    .filter((p: any) => p.categories?.some((c: any) => c.name === 'Extras'))
+    .map((p: any) => ({
+      id: p.variants?.[0]?.id,
+      label: p.title,
+      price: p.variants?.[0]?.calculated_price?.calculated_amount ?? 0,
+    }))
+    .filter((e: ExtraProduct): e is ExtraProduct => !!e.id);
+}
+
 /* ---------------------------------- Cart --------------------------------- */
 
 export interface Cart {
@@ -114,6 +137,7 @@ function toCart(cart: any): Cart {
       qty: item.quantity,
       unitPrice: item.unit_price,
       lineTotal: item.total ?? item.subtotal ?? item.unit_price * item.quantity,
+      parentLineItemId: item.metadata?.parent_line_item_id as string | undefined,
     };
   });
 
@@ -158,14 +182,67 @@ export async function addLineItem(variantId: string, quantity: number): Promise<
   return fetchCart(cartId);
 }
 
+/** Adds an extra (add-on) as its own line item, linked to a parent (drink) line item via metadata. */
+export async function addExtraLineItem(
+  cartId: string,
+  variantId: string,
+  quantity: number,
+  parentLineItemId: string
+): Promise<Cart> {
+  await sdk.store.cart.createLineItem(cartId, {
+    variant_id: variantId,
+    quantity,
+    metadata: { parent_line_item_id: parentLineItemId },
+  });
+  return fetchCart(cartId);
+}
+
+/**
+ * Adds a drink and, in the same add-to-bag action, each selected extra as its
+ * own line item linked to the drink's. The drink's own line item id isn't
+ * returned by createLineItem directly (only the whole updated cart is), so
+ * it's resolved by diffing the cart's item ids before/after the call.
+ */
+export async function addDrinkWithExtras(
+  variantId: string,
+  quantity: number,
+  extraVariantIds: string[]
+): Promise<Cart> {
+  const cartId = await getOrCreateCartId();
+  const { cart: before } = await sdk.store.cart.retrieve(cartId, { fields: '*items' });
+  const priorItemIds = new Set((before.items ?? []).map((item: any) => item.id));
+
+  const { cart: afterDrink } = await sdk.store.cart.createLineItem(cartId, { variant_id: variantId, quantity });
+  const drinkLineItem = (afterDrink.items ?? []).find((item: any) => !priorItemIds.has(item.id));
+  if (!drinkLineItem) throw new Error('Could not resolve the newly added line item.');
+
+  for (const extraVariantId of extraVariantIds) {
+    await addExtraLineItem(cartId, extraVariantId, quantity, drinkLineItem.id);
+  }
+
+  return fetchCart(cartId);
+}
+
+/** Removes a line item and, if it's a parent (drink) line, any extras linked to it. */
+export async function removeLineItem(cartId: string, lineId: string): Promise<Cart> {
+  const { cart } = await sdk.store.cart.retrieve(cartId, { fields: '*items' });
+  const linkedExtras = (cart.items ?? []).filter(
+    (item: any) => item.metadata?.parent_line_item_id === lineId
+  );
+  for (const extra of linkedExtras) {
+    await sdk.store.cart.deleteLineItem(cartId, extra.id);
+  }
+  await sdk.store.cart.deleteLineItem(cartId, lineId);
+  return fetchCart(cartId);
+}
+
 export async function changeLineItemQty(lineId: string, quantity: number): Promise<Cart> {
   const cartId = getCartId();
   if (!cartId) throw new Error('No cart to update');
   if (quantity <= 0) {
-    await sdk.store.cart.deleteLineItem(cartId, lineId);
-  } else {
-    await sdk.store.cart.updateLineItem(cartId, lineId, { quantity });
+    return removeLineItem(cartId, lineId);
   }
+  await sdk.store.cart.updateLineItem(cartId, lineId, { quantity });
   return fetchCart(cartId);
 }
 

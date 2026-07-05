@@ -105,6 +105,7 @@ export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: Menu
         <>
           {/* Featured */}
           <button
+            data-testid="featured-drink-card"
             onClick={() => onOpenDrink(featured.id)}
             style={{
               margin: '16px 24px 0',

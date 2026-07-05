@@ -61,6 +61,25 @@ const DRINKS = [
   },
 ];
 
+const EXTRAS = [
+  {
+    handle: "extra-espresso-shot",
+    title: "Extra Espresso Shot",
+    description: "One additional shot of espresso.",
+    price: 0.9,
+    sku: "EXTRA-SHOT",
+  },
+  {
+    handle: "cold-foam-top",
+    title: "Cold Foam Top",
+    description: "A layer of cold, lightly sweetened foam.",
+    price: 0.7,
+    sku: "EXTRA-FOAM",
+  },
+];
+
+const EXTRAS_CATEGORY = "Extras";
+
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const skuSuffix = (value: string) => value.toUpperCase().replace(/[^A-Z]/g, "");
 
@@ -97,7 +116,9 @@ export default async function seedCoffeeData({ container }: ExecArgs) {
   }
 
   logger.info("Seeding coffee categories...");
-  const categoryNames = Array.from(new Set(DRINKS.map((d) => d.category)));
+  const categoryNames = Array.from(
+    new Set([...DRINKS.map((d) => d.category), EXTRAS_CATEGORY])
+  );
 
   const { data: existingCategories } = await query.graph({
     entity: "product_category",
@@ -171,13 +192,51 @@ export default async function seedCoffeeData({ container }: ExecArgs) {
   }
   logger.info("Finished seeding coffee product data.");
 
+  logger.info("Seeding extra (add-on) products...");
+  // Deliberately no Size/Milk options — a single default variant each. This is
+  // what new-storefront/src/lib/backend.ts's listDrinks() relies on to exclude
+  // these from the drink menu (it drops any product without both option
+  // dimensions), so they only ever surface via listExtras().
+  const extrasToCreate = EXTRAS.filter((e) => !existingHandles.has(e.handle)).map(
+    (extra) => ({
+      title: extra.title,
+      category_ids: [categoryIdByName.get(EXTRAS_CATEGORY)!],
+      description: extra.description,
+      handle: extra.handle,
+      status: ProductStatus.PUBLISHED,
+      shipping_profile_id: shippingProfile.id,
+      options: [{ title: "Default", values: ["Default"] }],
+      variants: [
+        {
+          title: "Default",
+          sku: extra.sku,
+          options: { Default: "Default" },
+          prices: [
+            { amount: extra.price, currency_code: "eur" },
+            { amount: extra.price, currency_code: "usd" },
+          ],
+        },
+      ],
+      sales_channels: [{ id: defaultSalesChannel.id }],
+    })
+  );
+
+  if (extrasToCreate.length) {
+    await createProductsWorkflow(container).run({
+      input: { products: extrasToCreate },
+    });
+  } else {
+    logger.info("Extra products already exist, skipping product creation.");
+  }
+  logger.info("Finished seeding extra product data.");
+
   logger.info("Seeding coffee inventory levels...");
   const { data: inventoryItems } = await query.graph({
     entity: "inventory_item",
     fields: ["id", "sku"],
   });
-  const coffeeInventoryItems = inventoryItems.filter((item: any) =>
-    item.sku?.startsWith("COFFEE-")
+  const coffeeInventoryItems = inventoryItems.filter(
+    (item: any) => item.sku?.startsWith("COFFEE-") || item.sku?.startsWith("EXTRA-")
   );
 
   const { data: existingLevels } = await query.graph({

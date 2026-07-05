@@ -1,7 +1,8 @@
 export type Size = 'Small' | 'Medium' | 'Large';
 export type Milk = 'Oat' | 'Whole' | 'Almond' | 'Lactose-free';
 
-export interface Extra {
+/** A purchasable add-on (extra shot, cold foam), backed by a real single-variant Medusa product. */
+export interface ExtraProduct {
   id: string;
   label: string;
   price: number;
@@ -41,6 +42,8 @@ export interface CartItem {
   qty: number;
   unitPrice: number;
   lineTotal: number;
+  /** Set when this line item is an extra (add-on) linked to another line item. */
+  parentLineItemId?: string;
 }
 
 export interface ChatMessage {

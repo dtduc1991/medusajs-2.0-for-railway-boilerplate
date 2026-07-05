@@ -18,7 +18,13 @@ export function CartScreen({ cart, onQty, onApplyPromo, promoError, onBrowse, on
   const [promoCode, setPromoCode] = useState('');
   const [showPromoInput, setShowPromoInput] = useState(false);
 
-  const items = cart?.items ?? [];
+  const allItems = cart?.items ?? [];
+  const items = allItems.filter((it) => !it.parentLineItemId);
+  const extrasByParent = new Map<string, typeof allItems>();
+  for (const it of allItems) {
+    if (!it.parentLineItemId) continue;
+    extrasByParent.set(it.parentLineItemId, [...(extrasByParent.get(it.parentLineItemId) ?? []), it]);
+  }
   const currencyCode = cart?.currencyCode ?? 'eur';
 
   if (items.length === 0) {
@@ -65,24 +71,36 @@ export function CartScreen({ cart, onQty, onApplyPromo, promoError, onBrowse, on
       {/* Items */}
       <div style={{ padding: '8px 24px 0', flex: 1, overflowY: 'auto' }}>
         {items.map((it) => (
-          <div key={it.lineId} data-testid="cart-item" style={{ display: 'flex', gap: 13, alignItems: 'center', padding: '16px 0', borderBottom: `1px solid ${theme.line}` }}>
-            <Placeholder tint={it.tint} width={58} height={58} radius={15} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ font: `600 15px ${theme.body}`, color: theme.ink }}>{it.title}</div>
-              <div style={{ font: `500 12px ${theme.body}`, color: theme.muted, marginTop: 2 }}>
-                {[it.size, it.milk].filter(Boolean).join(' · ')}
+          <div key={it.lineId}>
+            <div data-testid="cart-item" style={{ display: 'flex', gap: 13, alignItems: 'center', padding: '16px 0 0', borderBottom: extrasByParent.has(it.lineId) ? 'none' : `1px solid ${theme.line}`, paddingBottom: extrasByParent.has(it.lineId) ? 0 : 16 }}>
+              <Placeholder tint={it.tint} width={58} height={58} radius={15} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ font: `600 15px ${theme.body}`, color: theme.ink }}>{it.title}</div>
+                <div style={{ font: `500 12px ${theme.body}`, color: theme.muted, marginTop: 2 }}>
+                  {[it.size, it.milk].filter(Boolean).join(' · ')}
+                </div>
+                <div style={{ font: `600 14px ${theme.display}`, color: theme.ink, marginTop: 5 }}>{money(it.unitPrice, currencyCode)}</div>
               </div>
-              <div style={{ font: `600 14px ${theme.display}`, color: theme.ink, marginTop: 5 }}>{money(it.unitPrice, currencyCode)}</div>
+              <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${theme.lineStrong}`, borderRadius: 11, background: theme.paper }}>
+                <button onClick={() => onQty(it.lineId, -1)} style={miniStep}>
+                  <Icon name="Minus" size={15} />
+                </button>
+                <span style={{ width: 22, textAlign: 'center', font: `600 14px ${theme.display}`, color: theme.ink }}>{it.qty}</span>
+                <button onClick={() => onQty(it.lineId, 1)} style={miniStep}>
+                  <Icon name="Plus" size={15} />
+                </button>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${theme.lineStrong}`, borderRadius: 11, background: theme.paper }}>
-              <button onClick={() => onQty(it.lineId, -1)} style={miniStep}>
-                <Icon name="Minus" size={15} />
-              </button>
-              <span style={{ width: 22, textAlign: 'center', font: `600 14px ${theme.display}`, color: theme.ink }}>{it.qty}</span>
-              <button onClick={() => onQty(it.lineId, 1)} style={miniStep}>
-                <Icon name="Plus" size={15} />
-              </button>
-            </div>
+            {(extrasByParent.get(it.lineId) ?? []).map((extra) => (
+              <div
+                key={extra.lineId}
+                data-testid="cart-item-extra"
+                style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0 12px 71px', font: `500 13px ${theme.body}`, color: theme.muted, borderBottom: `1px solid ${theme.line}` }}
+              >
+                <span>+ {extra.title}</span>
+                <span>{money(extra.unitPrice, currencyCode)}</span>
+              </div>
+            ))}
           </div>
         ))}
 
