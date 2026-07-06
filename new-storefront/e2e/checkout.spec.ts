@@ -86,6 +86,7 @@ test('logged-in checkout prefills from the persisted default address and can be 
   await page.getByTestId('first-name-input').fill('Grace');
   await page.getByTestId('last-name-input').fill('Hopper');
   await page.getByTestId('phone-input').fill(phone);
+  await page.getByTestId('email-input').fill(`ember-e2e-${phone}@example.com`);
   await page.getByTestId('address-input').fill('1 Signup Way');
   await page.getByTestId('city-input').fill('Hanoi');
   await page.getByTestId('password-input').fill('TestPass123!');

@@ -174,32 +174,51 @@ no-ops on `countries` — that field is only wired up in the module's custom-ove
   `seed.ts`) and the container recreated — that part is real and current. It's only the
   *one-off Vietnam script's* correctness that's in question.
 
-## Open items / what the next agent should do, in order
+## Follow-up session — all open items resolved
 
-1. **Restore `geo_zone` first.** Either re-run a throwaway script that sets
-   `updateServiceZones(serviceZoneId, { geo_zones: [gb,de,dk,se,fr,es,it,vn].map(cc => ({country_code:
-   cc, type: "country"})) })`, or `docker compose cp` the now-fixed `add-vietnam-region.ts` into the
-   container and run it — but first read it once more to make sure the `geo_zones` relations fix is
-   actually correct (it typechecks but was never executed).
-2. **After restoring, re-run `add-vietnam-region.ts` a second time immediately** to confirm it's now
-   genuinely idempotent (all three steps should log "already ..." / "already includes" with no
-   destructive side effect) — don't trust the fix until this no-op re-run is observed.
-3. **Verify via `psql` against `test_medusa_db`** (not `medusa`) that `geo_zone` has all 8 countries,
-   `region_country` has `vn` assigned to the region, and `tax_region` has a `vn` row.
-4. **Curl the new auth route** directly: sign up a test customer (via the app or `sdk.auth.register` +
-   `sdk.store.customer.create`), then `curl -X POST
-   http://localhost:9000/auth/customer/emailpass/login-by-identifier -d
-   '{"identifier":"<phone>","password":"..."}'` (and again with the email) before trusting the frontend
-   integration.
-5. **Run the full Playwright suite** (`cd new-storefront && npx playwright test e2e`) — this exercises
-   all of the above together and is the real end-to-end confirmation this session never got to.
-6. **Nothing has been committed.** `git status` at end of session: modified
-   `backend/package.json`, `backend/src/scripts/seed.ts`, `new-storefront/{e2e/*.spec.ts, src/App.tsx,
-   src/lib/{auth,checkout}.ts, src/screens/{AccountScreen,CheckoutScreen,RewardsScreen}.tsx}`; new
-   `backend/src/api/auth/` (the login-by-identifier route), `backend/src/scripts/add-vietnam-region.ts`.
-   Don't commit until item 5 passes.
+A later session (2026-07-06) picked this up and closed every item above. Summary, in order:
+
+1. **`geo_zone` restore was worse than diagnosed.** Querying `test_medusa_db` directly found *two*
+   tables wiped to `vn`-only, not one: `geo_zone` (as expected) but also `region_country` (the region's
+   country assignment) — the same relation-loading trap had silently hit `upsertRegions()` too, on an
+   earlier bad run where `existingCountries` was read back empty. `tax_region` was unaffected (additive
+   `createTaxRegions`, not a full-replace). Fixed with a throwaway `restore-full-coverage.ts` (not
+   committed — copied into the container via `docker compose cp`, run once, deleted) that explicitly set
+   both `region.countries` and `service_zone.geo_zones` back to all 8 (`gb,de,dk,se,fr,es,it,vn`).
+2. **Idempotency confirmed.** Re-ran the corrected `add-vietnam-region.ts` (with the `geo_zones`
+   relations fix, copied into the running container) immediately after restoring — all three checks
+   logged "already ..." with counts unchanged (8/8) before and after.
+3. **Verified via `psql` against `test_medusa_db`** — `geo_zone`, `region_country`, and `tax_region` all
+   show 8 rows.
+4. **Curled `/auth/customer/emailpass/login-by-identifier` directly** — login by phone: works. Login by
+   email: works. Wrong password and unknown identifier: both a generic 401, no oracle. This step also
+   surfaced a real bug session 014 missed (see below).
+5. **Full Playwright suite: 15/15 passed** against the live docker-compose stack (`npx playwright test
+   e2e` from `new-storefront/`), after the fix in the next paragraph and after filling in `email-input`
+   in signup steps that several tests had missed (`auth.spec.ts` ×2, `checkout.spec.ts` ×1,
+   `rewards.spec.ts` ×4 — pre-existing gaps in the specs' own coverage, unmasked by the email-required
+   reversal below).
+6. **Real bug found and a scope decision reversed.** Curling `POST /store/customers` with no `email`
+   (the phone-only-signup path Part B was built around) failed with `"Email is required to create a
+   customer"`. Session 014 confirmed `email` is `.nullish()` in the `StoreCreateCustomer` zod validator
+   and concluded "email-optional-at-signup needed zero backend model changes" — but missed that Medusa's
+   core `createCustomerAccountWorkflow` runs a separate step, `validateCustomerAccountCreation`
+   (`@medusajs/core-flows`), that unconditionally throws if `email` is falsy, independent of what the
+   route's own validator allows. Confirmed by reading `validate-customer-account-creation.js` directly,
+   and reproduced twice (fails with `email` omitted, succeeds identically with a real email attached).
+   Presented three options to the user (bypass the workflow with a custom route; synthesize a placeholder
+   email; make email required again) — **user chose to reverse the "email optional" scope decision**
+   rather than add a workaround route. Email is now required at signup again:
+   - `new-storefront/src/lib/auth.ts`: `signup()`'s `email` field is `string` again (was `?: string`),
+     always passed straight to `sdk.store.customer.create(...)`.
+   - `new-storefront/src/screens/AccountScreen.tsx`: `onSignup`'s `email` prop is required; `canSubmit`
+     now includes `email` in the signup-mode check; placeholder text dropped "(optional)".
+   - `new-storefront/src/App.tsx`: `handleSignup`'s `fields.email` type updated to match.
+   - Phone-or-email **login** is unaffected and still works as designed — only signup changed.
+7. **Still not committed** — same file set as before (see original list above) plus the email-required
+   reversal on top. Ask the user before committing/pushing.
 
 ## Suggested skills for the next session
 
-`/verify` once the Playwright suite passes, to drive the phone-login and Vietnam-checkout flows live
-in a browser before considering this done — this session never got to a browser-level check for Part B.
+None outstanding for Part B — `/verify` (or manual browser check) is still worth doing once this is
+committed, since this session's confirmation was Playwright + curl, not an interactive browser session.

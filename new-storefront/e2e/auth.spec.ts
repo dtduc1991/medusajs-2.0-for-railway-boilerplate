@@ -37,6 +37,7 @@ test('sign up with phone + address, see real order history state, log out, log b
   await page.getByTestId('first-name-input').fill('Grace');
   await page.getByTestId('last-name-input').fill('Hopper');
   await page.getByTestId('phone-input').fill(phone);
+  await page.getByTestId('email-input').fill(uniqueEmail());
   await page.getByTestId('address-input').fill('1 Analytical Engine Rd');
   await page.getByTestId('city-input').fill('Hanoi');
   await page.getByTestId('password-input').fill('TestPass123!');
@@ -93,6 +94,7 @@ test('signing up with an already-registered phone number shows a friendly error'
     await page.getByTestId('first-name-input').fill('Grace');
     await page.getByTestId('last-name-input').fill('Hopper');
     await page.getByTestId('phone-input').fill(phone);
+    await page.getByTestId('email-input').fill(uniqueEmail());
     await page.getByTestId('address-input').fill('1 Analytical Engine Rd');
     await page.getByTestId('city-input').fill('Hanoi');
     await page.getByTestId('password-input').fill('TestPass123!');

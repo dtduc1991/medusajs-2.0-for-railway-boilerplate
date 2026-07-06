@@ -14,6 +14,10 @@ function uniquePhone(): string {
   return `+849${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 10)}`;
 }
 
+function uniqueEmail(): string {
+  return `rewards-signup-e2e+${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
+}
+
 // Read directly from .env.local (not exposed to this Node-side test file via
 // import.meta.env, which only exists in the Vite-bundled app).
 function publishableKey(): string {
@@ -44,6 +48,7 @@ test('placing an order while logged in earns real loyalty points', async ({ page
   await page.getByTestId('first-name-input').fill('Rosalind');
   await page.getByTestId('last-name-input').fill('Franklin');
   await page.getByTestId('phone-input').fill(uniquePhone());
+  await page.getByTestId('email-input').fill(uniqueEmail());
   await page.getByTestId('address-input').fill('123 Test St');
   await page.getByTestId('city-input').fill('Berlin');
   await page.getByTestId('password-input').fill('TestPass123!');
@@ -89,6 +94,7 @@ test('an order placed from a cart started as a guest still earns loyalty points 
   await page.getByTestId('first-name-input').fill('Ada');
   await page.getByTestId('last-name-input').fill('Lovelace');
   await page.getByTestId('phone-input').fill(uniquePhone());
+  await page.getByTestId('email-input').fill(uniqueEmail());
   await page.getByTestId('address-input').fill('123 Test St');
   await page.getByTestId('city-input').fill('Berlin');
   await page.getByTestId('password-input').fill('TestPass123!');
@@ -127,6 +133,7 @@ test('redeeming a reward debits the threshold and logs an activity row', async (
   await page.getByTestId('first-name-input').fill('Grace');
   await page.getByTestId('last-name-input').fill('Hopper');
   await page.getByTestId('phone-input').fill(uniquePhone());
+  await page.getByTestId('email-input').fill(uniqueEmail());
   await page.getByTestId('address-input').fill('123 Test St');
   await page.getByTestId('city-input').fill('Berlin');
   await page.getByTestId('password-input').fill('TestPass123!');
@@ -188,6 +195,7 @@ test('redeeming a reward with an item already in the bag applies a real discount
   await page.getByTestId('first-name-input').fill('Katherine');
   await page.getByTestId('last-name-input').fill('Johnson');
   await page.getByTestId('phone-input').fill(uniquePhone());
+  await page.getByTestId('email-input').fill(uniqueEmail());
   await page.getByTestId('address-input').fill('123 Test St');
   await page.getByTestId('city-input').fill('Berlin');
   await page.getByTestId('password-input').fill('TestPass123!');

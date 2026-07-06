@@ -54,13 +54,17 @@ function toCustomer(customer: any): Customer {
  * Phone, not email, is the real registered identifier (the `email` field
  * `sdk.auth.register`/`login` expect is just an opaque unique string as far as
  * the emailpass provider cares — no format validation happens server-side).
- * Email is optional, stored on the customer record only. This lets a customer
- * log in with either later — see `login()`'s server-side identifier
- * resolution.
+ * Email is still required at signup and stored on the customer record too —
+ * Medusa's core `createCustomerAccountWorkflow` has a `validateCustomerAccountCreation`
+ * step that unconditionally rejects a missing email, independent of the
+ * `StoreCreateCustomer` zod validator's `.nullish()` (confirmed by reading
+ * `validate-customer-account-creation.js` in node_modules; see
+ * docs/sessions/014). This lets a customer log in with either phone or email
+ * later — see `login()`'s server-side identifier resolution.
  */
 export async function signup(fields: {
   phone: string;
-  email?: string;
+  email: string;
   password: string;
   first_name: string;
   last_name: string;
@@ -78,7 +82,7 @@ export async function signup(fields: {
   }
   await sdk.store.customer.create({
     phone: fields.phone,
-    email: fields.email || undefined,
+    email: fields.email,
     first_name: fields.first_name,
     last_name: fields.last_name,
   });

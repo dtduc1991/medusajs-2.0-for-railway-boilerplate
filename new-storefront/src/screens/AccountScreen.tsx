@@ -9,7 +9,7 @@ interface AccountScreenProps {
   onLogin: (identifier: string, password: string) => Promise<void>;
   onSignup: (fields: {
     phone: string;
-    email?: string;
+    email: string;
     password: string;
     first_name: string;
     last_name: string;
@@ -94,7 +94,7 @@ function AuthForm({
   onLogin: (identifier: string, password: string) => Promise<void>;
   onSignup: (fields: {
     phone: string;
-    email?: string;
+    email: string;
     password: string;
     first_name: string;
     last_name: string;
@@ -124,7 +124,7 @@ function AuthForm({
       } else {
         await onSignup({
           phone,
-          email: email || undefined,
+          email,
           password,
           first_name: firstName,
           last_name: lastName,
@@ -140,7 +140,9 @@ function AuthForm({
   };
 
   const canSubmit =
-    mode === 'login' ? Boolean(identifier && password) : Boolean(phone && password && firstName && lastName && address1 && city);
+    mode === 'login'
+      ? Boolean(identifier && password)
+      : Boolean(phone && email && password && firstName && lastName && address1 && city);
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -163,7 +165,7 @@ function AuthForm({
             <input data-testid="last-name-input" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} style={fieldStyle} />
           </div>
           <input data-testid="phone-input" type="tel" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} style={fieldStyle} />
-          <input data-testid="email-input" type="email" placeholder="Email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} style={fieldStyle} />
+          <input data-testid="email-input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={fieldStyle} />
           <input data-testid="address-input" placeholder="Address" value={address1} onChange={(e) => setAddress1(e.target.value)} style={fieldStyle} />
           <input data-testid="city-input" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} style={fieldStyle} />
         </>
