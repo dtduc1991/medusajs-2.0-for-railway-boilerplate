@@ -14,6 +14,11 @@ interface MenuScreenProps {
 
 export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: MenuScreenProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  // Quick-add's cart update is async (bag badge lags a network round trip) —
+  // flip the plus icon to a checkmark immediately on click so the tap reads
+  // as instant regardless of that delay.
+  const [justAdded, setJustAdded] = useState(false);
+  const [justAddedId, setJustAddedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedCategory && categories.length) setSelectedCategory(categories[0]);
@@ -151,6 +156,8 @@ export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: Menu
               onClick={(e) => {
                 e.stopPropagation();
                 onQuickAdd(featured);
+                setJustAdded(true);
+                setTimeout(() => setJustAdded(false), 900);
               }}
               style={{
                 position: 'absolute',
@@ -165,9 +172,11 @@ export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: Menu
                 alignItems: 'center',
                 justifyContent: 'center',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                transform: justAdded ? 'scale(1.15)' : 'scale(1)',
+                transition: 'transform 150ms ease',
               }}
             >
-              <Icon name="Plus" size={20} />
+              <Icon name={justAdded ? 'Check' : 'Plus'} size={20} />
             </span>
           </button>
 
@@ -190,7 +199,11 @@ export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: Menu
               </button>
               <button
                 data-testid="quick-add-button"
-                onClick={() => onQuickAdd(d)}
+                onClick={() => {
+                  onQuickAdd(d);
+                  setJustAddedId(d.id);
+                  setTimeout(() => setJustAddedId((cur) => (cur === d.id ? null : cur)), 900);
+                }}
                 style={{
                   width: 34,
                   height: 34,
@@ -203,9 +216,11 @@ export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: Menu
                   background: 'none',
                   cursor: 'pointer',
                   flexShrink: 0,
+                  transform: justAddedId === d.id ? 'scale(1.15)' : 'scale(1)',
+                  transition: 'transform 150ms ease',
                 }}
               >
-                <Icon name="Plus" size={18} />
+                <Icon name={justAddedId === d.id ? 'Check' : 'Plus'} size={18} />
               </button>
             </div>
           ))}
