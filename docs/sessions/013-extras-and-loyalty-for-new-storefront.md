@@ -202,6 +202,68 @@ suite is now 11 specs, all passing (`cd new-storefront && npx playwright test e2
 4. ~~Loyalty point rate/threshold are hardcoded~~ — fixed in this session.
 
 None of the original four open items remain. Possible future work, not asked for and not built:
-a real fulfillment/coupon behind a redemption (today it's ledger-only, matching the original
-mock's cosmetic scope), and wrapping the ledger's award/redeem read-then-write sequences in a
-lock or workflow if concurrent-request correctness ever matters beyond this demo.
+wrapping the ledger's award/redeem read-then-write sequences in a lock or workflow if
+concurrent-request correctness ever matters beyond this demo.
+
+## Follow-up (later session): real fulfillment/coupon behind a redemption
+
+Redemption used to be ledger-only (debit the points, log an activity row — no actual discount).
+`backend/src/api/store/loyalty/redeem/route.ts` now also mints a real Medusa **promotion** via
+`IPromotionModuleService.createPromotions()` (core module, resolved with `Modules.PROMOTION` —
+same pattern as the existing `Modules.API_KEY`/`Modules.PRODUCT` usages elsewhere in this repo,
+no new dependency needed since `@medusajs/promotion` ships as a transitive dep of
+`@medusajs/medusa`):
+- `type: "standard"`, `is_automatic: false`, **`limit: 1`** (single-use), random code
+  (`FREE-<8 hex chars>`).
+- `application_method`: `percentage` / `value: 100` / `target_type: "items"` /
+  `allocation: "each"` / **`max_quantity: 1`** — discounts exactly one unit of one line item, not
+  the whole cart. Scoped away from the "Extras" category via a `target_rules` entry on
+  `items.product.categories.id` (`operator: "ne"`) so a redemption can't be used to zero out an
+  extra shot instead of a drink.
+- The rule-attribute path (`items.product.categories.id`) and its `in`/`eq`/`ne` operators were
+  confirmed against the running dev backend's own
+  `GET /admin/promotions/rule-attribute-options/target-rules` endpoint (not guessed from
+  memory), and the whole shape was validated end-to-end with a throwaway promotion applied to a
+  real cart via `curl` before writing any storefront code — confirmed a 2-quantity drink + 2-qty
+  extra cart discounts to exactly one drink unit, extra untouched.
+- `LoyaltyTransaction.reference_id` (previously always `null` on redeem) now stores the
+  promotion's code, so the ledger keeps a real link to what was actually issued.
+- Response body gained a `code` field alongside the existing `balance`/`transactions`.
+
+`new-storefront/src/lib/loyalty.ts`'s `redeemReward()` now returns `code` too.
+`new-storefront/src/App.tsx` gained `handleRedeem`: mints the code, then immediately tries
+`applyPromoCode(code)` against whatever cart currently exists (the same
+`sdk.store.cart.update(cartId, { promo_codes })` call the pre-existing manual "Apply a promo
+code" cart UI already used) — a no-cart-yet failure is expected and swallowed, not an error, since
+the code is still valid for later manual entry. `RewardsScreen.tsx` takes a new
+`onRedeem: () => Promise<{ account; code; appliedToCart }>` prop (redemption's cart-application
+side effect lives in `App.tsx`, matching where `applyPromo`/cart state already live — the screen
+itself only renders the outcome) and shows one of two confirmation strings via a new
+`data-testid="redeem-confirmation"`: "Applied! Your free drink discount is in your bag." or
+"Reward unlocked — enter code FREE-XXXXXXXX in your bag to redeem it."
+
+**Verified end-to-end, not just typecheck**: rebuilt the backend image, recreated both `backend`
+and `storefront` docker-compose containers (recreating `backend` invalidates `storefront`'s
+network-namespace-shared connection per this repo's known docker-compose gotcha — needed a
+`docker compose up -d storefront` after, not just a restart, since restarting a
+`network_mode: "service:backend"` container against a *new* backend container ID fails outright).
+Backend `npx tsc --noEmit` and `new-storefront`'s `npm run build` both pass clean. Added
+`e2e/rewards.spec.ts`'s "redeeming a reward with an item already in the bag applies a real
+discount to the cart": places one order to earn points, starts a fresh bag, reads the cart's
+`total` directly via `GET /store/carts/:id` before redeeming (same direct-API-read pattern
+`extras.spec.ts` already established for state the UI doesn't expose), redeems, asserts the
+confirmation text, then re-reads the same cart and asserts `promotions.length === 1` and `total`
+strictly decreased. Snaps before every button click through the whole flow (16 screenshots,
+`01-menu-initial` through `16-rewards-fulfillment-applied`) so the full state progression —
+signup, quick-add, checkout, order confirmation, second cart, redeem — is visually inspectable,
+not just the redeem moment.
+
+**Flakiness fix, same pass**: while re-running the full suite to add the before/after snap, found
+that the quick-add-then-checkout flow in both this test and the pre-existing "redeeming a reward
+debits the threshold" test raced the app's fire-and-forget `void addVariantToCart(...)` — under
+the load of running all 12 specs back-to-back (vs. this file's 5 in isolation), the bag could
+still be empty by the time the test looked for the pay button, and Playwright's default 5s
+assertion timeout wasn't always enough for the add to land. Both call sites now
+`await expect(page.getByTestId('cart-item')).toHaveCount(1, { timeout: 15000 })` before proceeding
+to checkout, matching the 15s timeout convention already used elsewhere in this file. Confirmed
+fixed by re-running the full 12-spec suite twice in a row with no failures.

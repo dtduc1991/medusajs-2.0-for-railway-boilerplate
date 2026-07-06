@@ -60,15 +60,21 @@ export async function getLoyaltyConfig(): Promise<LoyaltyConfig> {
   });
 }
 
-/** Debits REWARD_THRESHOLD points for a free-drink reward; 400s if the balance is short. */
-export async function redeemReward(): Promise<LoyaltyAccount> {
-  const { balance, transactions } = await sdk.client.fetch<{
+/**
+ * Debits REWARD_THRESHOLD points for a free-drink reward; 400s if the balance
+ * is short. `code` is a real, single-use Medusa promotion code (100% off one
+ * drink) minted server-side — the caller is responsible for applying it to a
+ * cart (e.g. via `applyPromoCode`), this call only mints and debits.
+ */
+export async function redeemReward(): Promise<LoyaltyAccount & { code: string }> {
+  const { balance, transactions, code } = await sdk.client.fetch<{
     balance: number;
     transactions: LoyaltyTransactionDTO[];
+    code: string;
   }>('/store/loyalty/redeem', {
     method: 'POST',
     headers: { accept: 'application/json' },
   });
 
-  return { balance, activity: toActivity(transactions) };
+  return { balance, activity: toActivity(transactions), code };
 }

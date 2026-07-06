@@ -55,6 +55,7 @@ export function TabBar({ active, onChange, bagCount = 0 }: TabBarProps) {
             <span style={{ font: `600 10px ${theme.body}` }}>{item.label}</span>
             {item.tab === 'bag' && bagCount > 0 && (
               <span
+                data-testid="bag-count-badge"
                 style={{
                   position: 'absolute',
                   top: -4,

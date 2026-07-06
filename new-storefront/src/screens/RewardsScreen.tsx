@@ -1,16 +1,24 @@
 import { useEffect, useState } from 'react';
 import { theme } from '../theme';
 import { Icon } from '../components/Icon';
-import { getLoyaltyAccount, redeemReward, type LoyaltyAccount } from '../lib/loyalty';
+import { getLoyaltyAccount, type LoyaltyAccount } from '../lib/loyalty';
 import type { Customer } from '../lib/auth';
+
+interface RedeemResult {
+  account: LoyaltyAccount;
+  code: string;
+  appliedToCart: boolean;
+}
 
 interface RewardsScreenProps {
   customer: Customer | null;
   /** Points required to redeem a free drink — sourced from the backend's loyalty config. */
   rewardThreshold: number;
+  /** Mints the real promotion code and tries to apply it to the current cart. */
+  onRedeem: () => Promise<RedeemResult>;
 }
 
-export function RewardsScreen({ customer, rewardThreshold }: RewardsScreenProps) {
+export function RewardsScreen({ customer, rewardThreshold, onRedeem }: RewardsScreenProps) {
   if (!customer) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 }}>
@@ -25,14 +33,23 @@ export function RewardsScreen({ customer, rewardThreshold }: RewardsScreenProps)
     );
   }
 
-  return <RewardsContent customer={customer} rewardThreshold={rewardThreshold} />;
+  return <RewardsContent customer={customer} rewardThreshold={rewardThreshold} onRedeem={onRedeem} />;
 }
 
-function RewardsContent({ customer, rewardThreshold }: { customer: Customer; rewardThreshold: number }) {
+function RewardsContent({
+  customer,
+  rewardThreshold,
+  onRedeem,
+}: {
+  customer: Customer;
+  rewardThreshold: number;
+  onRedeem: () => Promise<RedeemResult>;
+}) {
   const [account, setAccount] = useState<LoyaltyAccount | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [redeemError, setRedeemError] = useState<string | null>(null);
+  const [redeemResult, setRedeemResult] = useState<{ code: string; appliedToCart: boolean } | null>(null);
 
   useEffect(() => {
     setAccount(null);
@@ -51,8 +68,12 @@ function RewardsContent({ customer, rewardThreshold }: { customer: Customer; rew
   const handleRedeem = () => {
     setRedeeming(true);
     setRedeemError(null);
-    redeemReward()
-      .then(setAccount)
+    setRedeemResult(null);
+    onRedeem()
+      .then(({ account, code, appliedToCart }) => {
+        setAccount(account);
+        setRedeemResult({ code, appliedToCart });
+      })
       .catch((e) => setRedeemError(e instanceof Error ? e.message : String(e)))
       .finally(() => setRedeeming(false));
   };
@@ -135,6 +156,13 @@ function RewardsContent({ customer, rewardThreshold }: { customer: Customer; rew
         {redeemError && (
           <div data-testid="redeem-error" style={{ font: `500 12px ${theme.body}`, color: theme.gold, marginTop: 8 }}>
             {redeemError}
+          </div>
+        )}
+        {redeemResult && (
+          <div data-testid="redeem-confirmation" style={{ font: `500 12px ${theme.body}`, color: theme.gold, marginTop: 8 }}>
+            {redeemResult.appliedToCart
+              ? 'Applied! Your free drink discount is in your bag.'
+              : `Reward unlocked — enter code ${redeemResult.code} in your bag to redeem it.`}
           </div>
         )}
       </div>

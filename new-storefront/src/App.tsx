@@ -22,7 +22,7 @@ import {
   type Cart,
 } from './lib/backend';
 import { getCurrentCustomer, login, logout, signup, type Customer } from './lib/auth';
-import { getLoyaltyConfig, type LoyaltyConfig } from './lib/loyalty';
+import { getLoyaltyConfig, redeemReward, type LoyaltyConfig } from './lib/loyalty';
 import type { Drink, ExtraProduct, Tab, View } from './types';
 
 /** Used until the real config loads (and if it fails to) — matches the backend's own default. */
@@ -100,6 +100,24 @@ export default function App() {
       .catch((e) => setPromoError(e instanceof Error ? e.message : String(e)));
   };
 
+  // Mints the real, single-use promotion code server-side, then tries to apply
+  // it to the current cart right away (same mechanism as the manual "Apply a
+  // promo code" flow). There may be no cart yet (e.g. redeeming right after an
+  // order, before adding anything new) — that's not an error, the code is
+  // still valid and shown to the customer to apply later.
+  const handleRedeem = async () => {
+    const { balance, activity, code } = await redeemReward();
+    let appliedToCart = false;
+    try {
+      const next = await applyPromoCode(code);
+      setCart(next);
+      appliedToCart = true;
+    } catch {
+      // No cart to apply to right now — the code itself is still redeemed and valid.
+    }
+    return { account: { balance, activity }, code, appliedToCart };
+  };
+
   const goTab = (tab: Tab) => setView({ kind: 'tab', tab });
 
   // A cart created before login/signup is otherwise never attributed to the
@@ -173,7 +191,7 @@ export default function App() {
               />
             )}
             {view.tab === 'rewards' && (
-              <RewardsScreen customer={customer} rewardThreshold={loyaltyConfig.rewardThreshold} />
+              <RewardsScreen customer={customer} rewardThreshold={loyaltyConfig.rewardThreshold} onRedeem={handleRedeem} />
             )}
             {view.tab === 'chat' && (
               <ChatScreen
