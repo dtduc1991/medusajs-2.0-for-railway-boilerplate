@@ -12,6 +12,10 @@ function parseAmount(text: string | null): number {
   return match ? parseFloat(match[0].replace(',', '.')) : NaN;
 }
 
+function uniquePhone(): string {
+  return `+849${Math.floor(10000000 + Math.random() * 89999999)}`;
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.waitForSelector('text=Order ahead');
@@ -31,13 +35,17 @@ test('guest can add a drink, check out, and land on a real order confirmation', 
   await payButton.click();
 
   await expect(page.getByTestId('checkout-container')).toBeVisible();
+  // Logged-out nudge: visible, dismissible, and never blocks guest checkout.
+  await expect(page.getByTestId('checkout-login-nudge')).toBeVisible();
+  await page.getByTestId('checkout-login-nudge-dismiss').click();
+  await expect(page.getByTestId('checkout-login-nudge')).toHaveCount(0);
+
   await page.getByTestId('email-input').fill('ember-e2e@example.com');
+  await page.getByTestId('phone-input').fill(uniquePhone());
   await page.getByTestId('first-name-input').fill('Ada');
   await page.getByTestId('last-name-input').fill('Lovelace');
   await page.getByTestId('address-input').fill('123 Test St');
   await page.getByTestId('city-input').fill('Berlin');
-  await page.getByTestId('postal-code-input').fill('10115');
-  await page.getByTestId('country-select').selectOption('de');
   await snap(page, testInfo, '03-checkout-address-filled');
 
   await page.getByTestId('continue-to-delivery-button').click();
@@ -66,6 +74,63 @@ test('guest can add a drink, check out, and land on a real order confirmation', 
   await page.getByTestId('tab-bag').click();
   await expect(page.getByTestId('cart-item')).toHaveCount(0);
   await snap(page, testInfo, '06-bag-emptied');
+});
+
+test('logged-in checkout prefills from the persisted default address and can be overridden for a different receiver', async ({
+  page,
+}, testInfo) => {
+  const phone = uniquePhone();
+
+  await page.getByTestId('tab-you').click();
+  await page.getByTestId('auth-mode-toggle').click();
+  await page.getByTestId('first-name-input').fill('Grace');
+  await page.getByTestId('last-name-input').fill('Hopper');
+  await page.getByTestId('phone-input').fill(phone);
+  await page.getByTestId('address-input').fill('1 Signup Way');
+  await page.getByTestId('city-input').fill('Hanoi');
+  await page.getByTestId('password-input').fill('TestPass123!');
+  await page.getByTestId('auth-submit-button').click();
+  await expect(page.getByTestId('customer-name')).toHaveText('Grace Hopper', { timeout: 15000 });
+
+  await page.getByTestId('tab-menu').click();
+  await page.getByTestId('featured-quick-add-button').click();
+  await page.getByTestId('tab-bag').click();
+  await expect(page.getByTestId('cart-item')).toHaveCount(1, { timeout: 15000 });
+  await page.getByTestId('pay-button').click();
+
+  await expect(page.getByTestId('checkout-container')).toBeVisible();
+  // Logged in: no login nudge, and the real signup-time default address
+  // (name, phone, address, city) is prefilled — not just name/email.
+  await expect(page.getByTestId('checkout-login-nudge')).toHaveCount(0);
+  await expect(page.getByTestId('first-name-input')).toHaveValue('Grace');
+  await expect(page.getByTestId('last-name-input')).toHaveValue('Hopper');
+  await expect(page.getByTestId('phone-input')).toHaveValue(phone);
+  await expect(page.getByTestId('address-input')).toHaveValue('1 Signup Way');
+  await expect(page.getByTestId('city-input')).toHaveValue('Hanoi');
+  await snap(page, testInfo, '01-checkout-prefilled');
+
+  await page.getByTestId('use-different-address-button').click();
+  await expect(page.getByTestId('first-name-input')).toHaveValue('');
+  await expect(page.getByTestId('last-name-input')).toHaveValue('');
+  await expect(page.getByTestId('phone-input')).toHaveValue('');
+  await expect(page.getByTestId('address-input')).toHaveValue('');
+  await expect(page.getByTestId('city-input')).toHaveValue('');
+  await expect(page.getByTestId('use-different-address-button')).toHaveCount(0);
+  await snap(page, testInfo, '02-checkout-cleared-for-different-receiver');
+
+  await page.getByTestId('email-input').fill('ember-e2e-receiver@example.com');
+  await page.getByTestId('phone-input').fill(uniquePhone());
+  await page.getByTestId('first-name-input').fill('Ada');
+  await page.getByTestId('last-name-input').fill('Lovelace');
+  await page.getByTestId('address-input').fill('123 Test St');
+  await page.getByTestId('city-input').fill('Ho Chi Minh City');
+  await page.getByTestId('continue-to-delivery-button').click();
+
+  const shippingOptions = page.getByTestId('shipping-option');
+  await expect(shippingOptions.first()).toBeVisible();
+  await page.getByTestId('place-order-button').click();
+  await expect(page.getByTestId('order-confirmation')).toBeVisible({ timeout: 15000 });
+  await snap(page, testInfo, '03-order-confirmation-different-receiver');
 });
 
 test('checkout form cannot be submitted with required fields missing', async ({ page }, testInfo) => {

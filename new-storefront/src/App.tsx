@@ -123,12 +123,20 @@ export default function App() {
   // A cart created before login/signup is otherwise never attributed to the
   // customer (Medusa fixes cart->customer at cart-creation time), so any order
   // placed from it wouldn't earn loyalty points. Transfer it right after auth.
-  const handleLogin = async (email: string, password: string) => {
-    setCustomer(await login(email, password));
+  const handleLogin = async (identifier: string, password: string) => {
+    setCustomer(await login(identifier, password));
     const transferred = await transferCartToCustomer();
     if (transferred) setCart(transferred);
   };
-  const handleSignup = async (fields: { email: string; password: string; first_name: string; last_name: string }) => {
+  const handleSignup = async (fields: {
+    phone: string;
+    email?: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+    address_1: string;
+    city: string;
+  }) => {
     setCustomer(await signup(fields));
     const transferred = await transferCartToCustomer();
     if (transferred) setCart(transferred);
@@ -168,7 +176,9 @@ export default function App() {
           cart && cart.items.length > 0 ? (
             <CheckoutScreen
               cart={cart}
+              customer={customer}
               onBack={() => goTab('bag')}
+              onGoToAccount={() => goTab('you')}
               onPlaced={(orderId, displayId) => {
                 setCart(null);
                 setView({ kind: 'orderConfirmation', orderId, displayId });

@@ -6,9 +6,16 @@ export interface CheckoutAddress {
   last_name: string;
   address_1: string;
   city: string;
-  postal_code: string;
-  country_code: string;
+  phone: string;
 }
+
+/**
+ * The only country this app's single seeded region+service-zone actually
+ * ships to (backend/src/scripts/seed.ts) — hardcoded rather than asked of the
+ * user, since there's only ever one real answer today. Not part of
+ * CheckoutAddress: nothing in the UI ever shows or edits it.
+ */
+const DEFAULT_COUNTRY_CODE = 'vn';
 
 export interface ShippingOption {
   id: string;
@@ -26,10 +33,11 @@ export async function listShippingOptions(cartId: string): Promise<ShippingOptio
 }
 
 export async function setCheckoutAddress(cartId: string, address: CheckoutAddress, email: string): Promise<void> {
+  const fullAddress = { ...address, country_code: DEFAULT_COUNTRY_CODE };
   await sdk.store.cart.update(cartId, {
     email,
-    shipping_address: address,
-    billing_address: address,
+    shipping_address: fullAddress,
+    billing_address: fullAddress,
   });
 }
 

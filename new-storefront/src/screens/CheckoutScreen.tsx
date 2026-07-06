@@ -5,33 +5,43 @@ import { money } from '../data';
 import { getRegionId, retrieveCart } from '../lib/backend';
 import { listShippingOptions, placeOrder, setCheckoutAddress, setShippingMethod, type CheckoutAddress, type ShippingOption } from '../lib/checkout';
 import type { Cart } from '../lib/backend';
-
-// Only the countries backend/src/scripts/seed.ts actually maps to a shipping
-// service zone can resolve shipping options — not an arbitrary UI restriction.
-const COUNTRIES: { code: string; label: string }[] = [
-  { code: 'gb', label: 'United Kingdom' },
-  { code: 'de', label: 'Germany' },
-  { code: 'dk', label: 'Denmark' },
-  { code: 'se', label: 'Sweden' },
-  { code: 'fr', label: 'France' },
-  { code: 'es', label: 'Spain' },
-  { code: 'it', label: 'Italy' },
-];
+import type { Customer } from '../lib/auth';
 
 interface CheckoutScreenProps {
   cart: Cart;
+  customer: Customer | null;
   onBack: () => void;
   onPlaced: (orderId: string, displayId: number) => void;
+  onGoToAccount: () => void;
 }
 
-export function CheckoutScreen({ cart, onBack, onPlaced }: CheckoutScreenProps) {
-  const [email, setEmail] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [address1, setAddress1] = useState('');
-  const [city, setCity] = useState('');
-  const [postalCode, setPostalCode] = useState('');
-  const [countryCode, setCountryCode] = useState(COUNTRIES[0].code);
+export function CheckoutScreen({ cart, customer, onBack, onPlaced, onGoToAccount }: CheckoutScreenProps) {
+  // Signup now persists a real default address (see auth.ts's signup()), so
+  // this prefill has real data to work with for most accounts — falling back
+  // to the customer profile's own name/phone/email when there isn't one.
+  const defaultAddress = customer?.defaultAddress ?? null;
+  const hasPrefill = Boolean(customer?.first_name || customer?.last_name || customer?.phone || defaultAddress);
+
+  const [email, setEmail] = useState(customer?.email ?? '');
+  const [phone, setPhone] = useState(defaultAddress?.phone || customer?.phone || '');
+  const [firstName, setFirstName] = useState(defaultAddress?.first_name || customer?.first_name || '');
+  const [lastName, setLastName] = useState(defaultAddress?.last_name || customer?.last_name || '');
+  const [address1, setAddress1] = useState(defaultAddress?.address_1 ?? '');
+  const [city, setCity] = useState(defaultAddress?.city ?? '');
+  // Tracks whether the form is still showing prefilled info, so the "use a
+  // different address" override only appears while there's something to
+  // revert from.
+  const [usingPrefilledInfo, setUsingPrefilledInfo] = useState(hasPrefill);
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
+
+  const useDifferentAddress = () => {
+    setFirstName('');
+    setLastName('');
+    setPhone('');
+    setAddress1('');
+    setCity('');
+    setUsingPrefilledInfo(false);
+  };
 
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[] | null>(null);
   const [shippingOptionId, setShippingOptionId] = useState<string | null>(null);
@@ -56,8 +66,7 @@ export function CheckoutScreen({ cart, onBack, onPlaced }: CheckoutScreenProps) 
         last_name: lastName,
         address_1: address1,
         city,
-        postal_code: postalCode,
-        country_code: countryCode,
+        phone,
       };
       await setCheckoutAddress(cart.id, address, email);
       const options = await listShippingOptions(cart.id);
@@ -88,7 +97,7 @@ export function CheckoutScreen({ cart, onBack, onPlaced }: CheckoutScreenProps) 
     }
   };
 
-  const canReview = email && firstName && lastName && address1 && city && postalCode;
+  const canReview = email && phone && firstName && lastName && address1 && city;
 
   const handlePlaceOrder = async () => {
     if (!shippingOptionId) return;
@@ -115,33 +124,60 @@ export function CheckoutScreen({ cart, onBack, onPlaced }: CheckoutScreenProps) 
       </div>
 
       <div style={{ padding: '8px 22px 0', flex: 1, overflowY: 'auto' }}>
+        {!customer && !nudgeDismissed && (
+          <div
+            data-testid="checkout-login-nudge"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10,
+              padding: '12px 14px',
+              borderRadius: 14,
+              background: theme.goldSoft,
+              marginBottom: 14,
+            }}
+          >
+            <span style={{ font: `500 13px ${theme.body}`, color: theme.ink, flex: 1 }}>
+              Log in to earn points on this order.
+            </span>
+            <button
+              data-testid="checkout-login-nudge-button"
+              onClick={onGoToAccount}
+              style={{ ...resetBtn, font: `700 13px ${theme.body}`, color: theme.accent, whiteSpace: 'nowrap' }}
+            >
+              Log in
+            </button>
+            <button
+              data-testid="checkout-login-nudge-dismiss"
+              onClick={() => setNudgeDismissed(true)}
+              aria-label="Dismiss"
+              style={{ ...resetBtn, color: theme.muted, display: 'flex' }}
+            >
+              <Icon name="X" size={16} />
+            </button>
+          </div>
+        )}
+
         <SectionLabel>CONTACT & DELIVERY ADDRESS</SectionLabel>
+        {usingPrefilledInfo && (
+          <button
+            data-testid="use-different-address-button"
+            onClick={useDifferentAddress}
+            style={{ ...resetBtn, font: `600 13px ${theme.body}`, color: theme.accent, marginTop: 6 }}
+          >
+            Use a different address
+          </button>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
           <Field testId="email-input" placeholder="Email" value={email} onChange={setEmail} type="email" />
+          <Field testId="phone-input" placeholder="Phone number" value={phone} onChange={setPhone} type="tel" />
           <div style={{ display: 'flex', gap: 10 }}>
             <Field testId="first-name-input" placeholder="First name" value={firstName} onChange={setFirstName} />
             <Field testId="last-name-input" placeholder="Last name" value={lastName} onChange={setLastName} />
           </div>
           <Field testId="address-input" placeholder="Address" value={address1} onChange={setAddress1} />
-          <div style={{ display: 'flex', gap: 10 }}>
-            <Field testId="city-input" placeholder="City" value={city} onChange={setCity} />
-            <Field testId="postal-code-input" placeholder="Postal code" value={postalCode} onChange={setPostalCode} />
-          </div>
-          <select
-            data-testid="country-select"
-            value={countryCode}
-            onChange={(e) => {
-              setCountryCode(e.target.value);
-              setShippingOptions(null);
-            }}
-            style={selectStyle}
-          >
-            {COUNTRIES.map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+          <Field testId="city-input" placeholder="City" value={city} onChange={setCity} />
         </div>
 
         {shippingOptions === null ? (
@@ -233,6 +269,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return <div style={{ font: `700 12px ${theme.body}`, letterSpacing: '0.08em', color: theme.muted, marginTop: 18 }}>{children}</div>;
 }
 
+const resetBtn: React.CSSProperties = { background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' };
+
 const circleBtn: React.CSSProperties = {
   width: 38,
   height: 38,
@@ -244,17 +282,6 @@ const circleBtn: React.CSSProperties = {
   color: theme.ink,
   border: `1px solid ${theme.line}`,
   cursor: 'pointer',
-};
-
-const selectStyle: React.CSSProperties = {
-  height: 48,
-  borderRadius: 14,
-  border: `1px solid ${theme.lineStrong}`,
-  background: theme.paper,
-  padding: '0 14px',
-  font: `500 14px ${theme.body}`,
-  color: theme.ink,
-  outline: 'none',
 };
 
 const primaryBtn: React.CSSProperties = {

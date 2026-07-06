@@ -10,8 +10,8 @@ import { snap } from './utils/screenshot';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function uniqueEmail(): string {
-  return `ember-e2e+${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
+function uniquePhone(): string {
+  return `+849${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 10)}`;
 }
 
 // Read directly from .env.local (not exposed to this Node-side test file via
@@ -43,7 +43,9 @@ test('placing an order while logged in earns real loyalty points', async ({ page
   await page.getByTestId('auth-mode-toggle').click();
   await page.getByTestId('first-name-input').fill('Rosalind');
   await page.getByTestId('last-name-input').fill('Franklin');
-  await page.getByTestId('email-input').fill(uniqueEmail());
+  await page.getByTestId('phone-input').fill(uniquePhone());
+  await page.getByTestId('address-input').fill('123 Test St');
+  await page.getByTestId('city-input').fill('Berlin');
   await page.getByTestId('password-input').fill('TestPass123!');
   await page.getByTestId('auth-submit-button').click();
   await expect(page.getByTestId('customer-name')).toHaveText('Rosalind Franklin', { timeout: 15000 });
@@ -59,8 +61,6 @@ test('placing an order while logged in earns real loyalty points', async ({ page
   await page.getByTestId('last-name-input').fill('Franklin');
   await page.getByTestId('address-input').fill('123 Test St');
   await page.getByTestId('city-input').fill('Berlin');
-  await page.getByTestId('postal-code-input').fill('10115');
-  await page.getByTestId('country-select').selectOption('de');
   await page.getByTestId('continue-to-delivery-button').click();
 
   await expect(page.getByTestId('shipping-option').first()).toBeVisible();
@@ -88,7 +88,9 @@ test('an order placed from a cart started as a guest still earns loyalty points 
   await page.getByTestId('auth-mode-toggle').click();
   await page.getByTestId('first-name-input').fill('Ada');
   await page.getByTestId('last-name-input').fill('Lovelace');
-  await page.getByTestId('email-input').fill(uniqueEmail());
+  await page.getByTestId('phone-input').fill(uniquePhone());
+  await page.getByTestId('address-input').fill('123 Test St');
+  await page.getByTestId('city-input').fill('Berlin');
   await page.getByTestId('password-input').fill('TestPass123!');
   await page.getByTestId('auth-submit-button').click();
   await expect(page.getByTestId('customer-name')).toHaveText('Ada Lovelace', { timeout: 15000 });
@@ -103,8 +105,6 @@ test('an order placed from a cart started as a guest still earns loyalty points 
   await page.getByTestId('last-name-input').fill('Lovelace');
   await page.getByTestId('address-input').fill('123 Test St');
   await page.getByTestId('city-input').fill('Berlin');
-  await page.getByTestId('postal-code-input').fill('10115');
-  await page.getByTestId('country-select').selectOption('de');
   await page.getByTestId('continue-to-delivery-button').click();
 
   await expect(page.getByTestId('shipping-option').first()).toBeVisible();
@@ -126,7 +126,9 @@ test('redeeming a reward debits the threshold and logs an activity row', async (
   await page.getByTestId('auth-mode-toggle').click();
   await page.getByTestId('first-name-input').fill('Grace');
   await page.getByTestId('last-name-input').fill('Hopper');
-  await page.getByTestId('email-input').fill(uniqueEmail());
+  await page.getByTestId('phone-input').fill(uniquePhone());
+  await page.getByTestId('address-input').fill('123 Test St');
+  await page.getByTestId('city-input').fill('Berlin');
   await page.getByTestId('password-input').fill('TestPass123!');
   await page.getByTestId('auth-submit-button').click();
   await expect(page.getByTestId('customer-name')).toHaveText('Grace Hopper', { timeout: 15000 });
@@ -147,8 +149,6 @@ test('redeeming a reward debits the threshold and logs an activity row', async (
   await page.getByTestId('last-name-input').fill('Hopper');
   await page.getByTestId('address-input').fill('123 Test St');
   await page.getByTestId('city-input').fill('Berlin');
-  await page.getByTestId('postal-code-input').fill('10115');
-  await page.getByTestId('country-select').selectOption('de');
   await page.getByTestId('continue-to-delivery-button').click();
   await expect(page.getByTestId('shipping-option').first()).toBeVisible();
   await page.getByTestId('shipping-option').first().click();
@@ -187,7 +187,9 @@ test('redeeming a reward with an item already in the bag applies a real discount
   await page.getByTestId('auth-mode-toggle').click();
   await page.getByTestId('first-name-input').fill('Katherine');
   await page.getByTestId('last-name-input').fill('Johnson');
-  await page.getByTestId('email-input').fill(uniqueEmail());
+  await page.getByTestId('phone-input').fill(uniquePhone());
+  await page.getByTestId('address-input').fill('123 Test St');
+  await page.getByTestId('city-input').fill('Berlin');
   await page.getByTestId('password-input').fill('TestPass123!');
 
   await snap(page, testInfo, '03-signup-form-filled');
@@ -221,8 +223,6 @@ test('redeeming a reward with an item already in the bag applies a real discount
   await page.getByTestId('last-name-input').fill('Johnson');
   await page.getByTestId('address-input').fill('123 Test St');
   await page.getByTestId('city-input').fill('Berlin');
-  await page.getByTestId('postal-code-input').fill('10115');
-  await page.getByTestId('country-select').selectOption('de');
 
   await snap(page, testInfo, '08-checkout-form-filled');
   await page.getByTestId('continue-to-delivery-button').click();

@@ -84,7 +84,7 @@ function RewardsContent({
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '10px 24px 0' }}>
         <div style={{ font: `700 30px ${theme.display}`, color: theme.ink, letterSpacing: '-0.03em' }}>Rewards</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: theme.sub, font: `600 12px ${theme.body}` }}>
-          <span>{(customer.first_name ?? customer.email).toUpperCase()}</span>
+          <span>{(customer.first_name ?? customer.phone ?? customer.email ?? '').toUpperCase()}</span>
           <div
             style={{
               width: 30,
@@ -98,7 +98,7 @@ function RewardsContent({
               font: `700 13px ${theme.display}`,
             }}
           >
-            {(customer.first_name ?? customer.email)[0]}
+            {(customer.first_name ?? customer.phone ?? customer.email ?? '?')[0]}
           </div>
         </div>
       </div>

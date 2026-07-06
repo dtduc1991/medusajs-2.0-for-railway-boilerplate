@@ -6,8 +6,16 @@ import { listMyOrders, type Customer, type OrderSummary } from '../lib/auth';
 
 interface AccountScreenProps {
   customer: Customer | null;
-  onLogin: (email: string, password: string) => Promise<void>;
-  onSignup: (fields: { email: string; password: string; first_name: string; last_name: string }) => Promise<void>;
+  onLogin: (identifier: string, password: string) => Promise<void>;
+  onSignup: (fields: {
+    phone: string;
+    email?: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+    address_1: string;
+    city: string;
+  }) => Promise<void>;
   onLogout: () => void;
 }
 
@@ -38,13 +46,14 @@ function Profile({ customer, onLogout }: { customer: Customer; onLogout: () => v
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '4px 0 20px' }}>
         <div style={{ width: 52, height: 52, borderRadius: 18, background: theme.accentSoft, color: theme.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `700 20px ${theme.display}` }}>
-          {customer.first_name?.[0] ?? customer.email[0].toUpperCase()}
+          {(customer.first_name?.[0] ?? customer.phone?.[0] ?? customer.email?.[0] ?? '?').toUpperCase()}
         </div>
         <div>
           <div data-testid="customer-name" style={{ font: `700 17px ${theme.display}`, color: theme.ink }}>
-            {[customer.first_name, customer.last_name].filter(Boolean).join(' ') || customer.email}
+            {[customer.first_name, customer.last_name].filter(Boolean).join(' ') || customer.phone || customer.email}
           </div>
-          <div data-testid="customer-email" style={{ font: `500 13px ${theme.body}`, color: theme.muted }}>{customer.email}</div>
+          {customer.phone && <div data-testid="customer-phone" style={{ font: `500 13px ${theme.body}`, color: theme.muted }}>{customer.phone}</div>}
+          {customer.email && <div data-testid="customer-email" style={{ font: `500 13px ${theme.body}`, color: theme.muted }}>{customer.email}</div>}
         </div>
       </div>
 
@@ -82,14 +91,26 @@ function AuthForm({
   onLogin,
   onSignup,
 }: {
-  onLogin: (email: string, password: string) => Promise<void>;
-  onSignup: (fields: { email: string; password: string; first_name: string; last_name: string }) => Promise<void>;
+  onLogin: (identifier: string, password: string) => Promise<void>;
+  onSignup: (fields: {
+    phone: string;
+    email?: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+    address_1: string;
+    city: string;
+  }) => Promise<void>;
 }) {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [address1, setAddress1] = useState('');
+  const [city, setCity] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,9 +120,17 @@ function AuthForm({
     setError(null);
     try {
       if (mode === 'login') {
-        await onLogin(email, password);
+        await onLogin(identifier, password);
       } else {
-        await onSignup({ email, password, first_name: firstName, last_name: lastName });
+        await onSignup({
+          phone,
+          email: email || undefined,
+          password,
+          first_name: firstName,
+          last_name: lastName,
+          address_1: address1,
+          city,
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -110,19 +139,35 @@ function AuthForm({
     }
   };
 
+  const canSubmit =
+    mode === 'login' ? Boolean(identifier && password) : Boolean(phone && password && firstName && lastName && address1 && city);
+
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ font: `700 18px ${theme.display}`, color: theme.ink, marginBottom: 4 }}>
         {mode === 'login' ? 'Log in' : 'Create your account'}
       </div>
 
-      {mode === 'signup' && (
-        <div style={{ display: 'flex', gap: 10 }}>
-          <input data-testid="first-name-input" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} style={fieldStyle} />
-          <input data-testid="last-name-input" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} style={fieldStyle} />
-        </div>
+      {mode === 'login' ? (
+        <input
+          data-testid="identifier-input"
+          placeholder="Email or phone"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          style={fieldStyle}
+        />
+      ) : (
+        <>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <input data-testid="first-name-input" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} style={fieldStyle} />
+            <input data-testid="last-name-input" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} style={fieldStyle} />
+          </div>
+          <input data-testid="phone-input" type="tel" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} style={fieldStyle} />
+          <input data-testid="email-input" type="email" placeholder="Email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} style={fieldStyle} />
+          <input data-testid="address-input" placeholder="Address" value={address1} onChange={(e) => setAddress1(e.target.value)} style={fieldStyle} />
+          <input data-testid="city-input" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} style={fieldStyle} />
+        </>
       )}
-      <input data-testid="email-input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={fieldStyle} />
       <input data-testid="password-input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={fieldStyle} />
 
       {error && <div data-testid="auth-error" style={{ font: `500 13px ${theme.body}`, color: theme.accent }}>{error}</div>}
@@ -130,7 +175,7 @@ function AuthForm({
       <button
         type="submit"
         data-testid="auth-submit-button"
-        disabled={submitting || !email || !password || (mode === 'signup' && (!firstName || !lastName))}
+        disabled={submitting || !canSubmit}
         style={{ ...primaryBtn, marginTop: 4, opacity: submitting ? 0.7 : 1 }}
       >
         {submitting ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}
