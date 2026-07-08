@@ -32,8 +32,9 @@ test('You tab shows a login/signup form when logged out', async ({ page }, testI
 test('sign up with phone + address, see real order history state, log out, log back in with phone', async ({ page }, testInfo) => {
   const phone = uniquePhone();
 
+  await snap(page, testInfo, '01-logged-out-form');
   await page.getByTestId('auth-mode-toggle').click();
-  await snap(page, testInfo, '01-signup-form');
+  await snap(page, testInfo, '02-signup-form');
   await page.getByTestId('first-name-input').fill('Grace');
   await page.getByTestId('last-name-input').fill('Hopper');
   await page.getByTestId('phone-input').fill(phone);
@@ -41,7 +42,7 @@ test('sign up with phone + address, see real order history state, log out, log b
   await page.getByTestId('address-input').fill('1 Analytical Engine Rd');
   await page.getByTestId('city-input').fill('Hanoi');
   await page.getByTestId('password-input').fill('TestPass123!');
-  await snap(page, testInfo, '02-signup-form-filled');
+  await snap(page, testInfo, '03-signup-form-filled');
   await page.getByTestId('auth-submit-button').click();
 
   await expect(page.getByTestId('customer-name')).toHaveText('Grace Hopper', { timeout: 15000 });
@@ -50,24 +51,26 @@ test('sign up with phone + address, see real order history state, log out, log b
   // associate past orders with a later-created account — see
   // docs/sessions/012-checkout-and-auth-for-new-storefront.md).
   await expect(page.getByTestId('no-orders-message')).toBeVisible();
-  await snap(page, testInfo, '03-signed-up-profile');
+  await snap(page, testInfo, '04-signed-up-profile');
 
   await page.getByTestId('logout-button').click();
   await expect(page.getByTestId('identifier-input')).toBeVisible();
-  await snap(page, testInfo, '04-logged-out');
+  await snap(page, testInfo, '05-logged-out');
 
   await page.getByTestId('identifier-input').fill(phone);
   await page.getByTestId('password-input').fill('TestPass123!');
+  await snap(page, testInfo, '06-login-form-filled');
   await page.getByTestId('auth-submit-button').click();
 
   await expect(page.getByTestId('customer-name')).toHaveText('Grace Hopper', { timeout: 15000 });
-  await snap(page, testInfo, '05-logged-back-in');
+  await snap(page, testInfo, '07-logged-back-in');
 });
 
 test('a customer can log in with their email instead of their phone', async ({ page }, testInfo) => {
   const phone = uniquePhone();
   const email = uniqueEmail();
 
+  await snap(page, testInfo, '01-logged-out-form');
   await page.getByTestId('auth-mode-toggle').click();
   await page.getByTestId('first-name-input').fill('Ada');
   await page.getByTestId('last-name-input').fill('Lovelace');
@@ -76,16 +79,47 @@ test('a customer can log in with their email instead of their phone', async ({ p
   await page.getByTestId('address-input').fill('12 Babbage St');
   await page.getByTestId('city-input').fill('Ho Chi Minh City');
   await page.getByTestId('password-input').fill('TestPass123!');
+  await snap(page, testInfo, '02-signup-form-filled');
   await page.getByTestId('auth-submit-button').click();
   await expect(page.getByTestId('customer-name')).toHaveText('Ada Lovelace', { timeout: 15000 });
+  await snap(page, testInfo, '03-signed-up-profile');
 
   await page.getByTestId('logout-button').click();
   await page.getByTestId('identifier-input').fill(email);
   await page.getByTestId('password-input').fill('TestPass123!');
+  await snap(page, testInfo, '04-login-with-email-form-filled');
   await page.getByTestId('auth-submit-button').click();
 
   await expect(page.getByTestId('customer-name')).toHaveText('Ada Lovelace', { timeout: 15000 });
-  await snap(page, testInfo, '01-logged-in-with-email');
+  await snap(page, testInfo, '05-logged-in-with-email');
+});
+
+test('a customer can log in with their phone number', async ({ page }, testInfo) => {
+  const phone = uniquePhone();
+  const email = uniqueEmail();
+
+  await snap(page, testInfo, '01-logged-out-form');
+  await page.getByTestId('auth-mode-toggle').click();
+  await page.getByTestId('first-name-input').fill('Katherine');
+  await page.getByTestId('last-name-input').fill('Johnson');
+  await page.getByTestId('phone-input').fill(phone);
+  await page.getByTestId('email-input').fill(email);
+  await page.getByTestId('address-input').fill('1 Hidden Figures Way');
+  await page.getByTestId('city-input').fill('Hampton');
+  await page.getByTestId('password-input').fill('TestPass123!');
+  await snap(page, testInfo, '02-signup-form-filled');
+  await page.getByTestId('auth-submit-button').click();
+  await expect(page.getByTestId('customer-name')).toHaveText('Katherine Johnson', { timeout: 15000 });
+  await snap(page, testInfo, '03-signed-up-profile');
+
+  await page.getByTestId('logout-button').click();
+  await page.getByTestId('identifier-input').fill(phone);
+  await page.getByTestId('password-input').fill('TestPass123!');
+  await snap(page, testInfo, '04-login-with-phone-form-filled');
+  await page.getByTestId('auth-submit-button').click();
+
+  await expect(page.getByTestId('customer-name')).toHaveText('Katherine Johnson', { timeout: 15000 });
+  await snap(page, testInfo, '05-logged-in-with-phone');
 });
 
 test('signing up with an already-registered phone number shows a friendly error', async ({ page }, testInfo) => {
@@ -100,27 +134,33 @@ test('signing up with an already-registered phone number shows a friendly error'
     await page.getByTestId('password-input').fill('TestPass123!');
   };
 
+  await snap(page, testInfo, '01-logged-out-form');
   await page.getByTestId('auth-mode-toggle').click();
   await signupFields();
+  await snap(page, testInfo, '02-first-signup-form-filled');
   await page.getByTestId('auth-submit-button').click();
   await expect(page.getByTestId('customer-name')).toHaveText('Grace Hopper', { timeout: 15000 });
+  await snap(page, testInfo, '03-first-signup-succeeded');
 
   await page.getByTestId('logout-button').click();
+  await snap(page, testInfo, '04-logged-out');
   await page.getByTestId('auth-mode-toggle').click();
   await signupFields();
+  await snap(page, testInfo, '05-duplicate-signup-form-filled');
   await page.getByTestId('auth-submit-button').click();
 
   await expect(page.getByTestId('auth-error')).toHaveText('This phone number is already registered.', { timeout: 15000 });
-  await snap(page, testInfo, '01-duplicate-phone-error');
+  await snap(page, testInfo, '06-duplicate-phone-error');
 });
 
 test('logging in with the wrong password shows an inline error, not a silent failure', async ({ page }, testInfo) => {
   await page.getByTestId('identifier-input').fill(uniquePhone());
   await page.getByTestId('password-input').fill('definitely-wrong');
+  await snap(page, testInfo, '01-wrong-password-form-filled');
   await page.getByTestId('auth-submit-button').click();
 
   await expect(page.getByTestId('auth-error')).toBeVisible({ timeout: 15000 });
   // Still on the logged-out form, not silently treated as a success.
   await expect(page.getByTestId('identifier-input')).toBeVisible();
-  await snap(page, testInfo, '01-wrong-password-error');
+  await snap(page, testInfo, '02-wrong-password-error');
 });

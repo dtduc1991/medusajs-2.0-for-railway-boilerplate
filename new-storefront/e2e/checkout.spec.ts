@@ -25,20 +25,23 @@ test('guest can add a drink, check out, and land on a real order confirmation', 
   await snap(page, testInfo, '01-menu');
 
   await page.getByTestId('featured-quick-add-button').click();
+  await snap(page, testInfo, '02-quick-added-to-bag');
 
   await page.getByTestId('tab-bag').click();
   const payButton = page.getByTestId('pay-button');
   await expect(payButton).toBeVisible();
   await expect(page.getByTestId('cart-item')).toHaveCount(1);
   const bagTotal = parseAmount(await payButton.textContent());
-  await snap(page, testInfo, '02-bag');
+  await snap(page, testInfo, '03-bag');
   await payButton.click();
 
   await expect(page.getByTestId('checkout-container')).toBeVisible();
   // Logged-out nudge: visible, dismissible, and never blocks guest checkout.
   await expect(page.getByTestId('checkout-login-nudge')).toBeVisible();
+  await snap(page, testInfo, '04-checkout-login-nudge');
   await page.getByTestId('checkout-login-nudge-dismiss').click();
   await expect(page.getByTestId('checkout-login-nudge')).toHaveCount(0);
+  await snap(page, testInfo, '05-checkout-nudge-dismissed');
 
   await page.getByTestId('email-input').fill('ember-e2e@example.com');
   await page.getByTestId('phone-input').fill(uniquePhone());
@@ -46,7 +49,7 @@ test('guest can add a drink, check out, and land on a real order confirmation', 
   await page.getByTestId('last-name-input').fill('Lovelace');
   await page.getByTestId('address-input').fill('123 Test St');
   await page.getByTestId('city-input').fill('Berlin');
-  await snap(page, testInfo, '03-checkout-address-filled');
+  await snap(page, testInfo, '06-checkout-address-filled');
 
   await page.getByTestId('continue-to-delivery-button').click();
 
@@ -62,18 +65,19 @@ test('guest can add a drink, check out, and land on a real order confirmation', 
   // right up until the order was placed. expect.poll retries until the
   // refetch lands rather than racing it with a single read.
   await expect.poll(async () => parseAmount(await placeOrderButton.textContent()), { timeout: 10000 }).toBeGreaterThan(bagTotal);
-  await snap(page, testInfo, '04-checkout-shipping-selected');
+  await snap(page, testInfo, '07-checkout-shipping-selected');
 
   await placeOrderButton.click();
 
   await expect(page.getByTestId('order-confirmation')).toBeVisible({ timeout: 15000 });
   await expect(page.getByTestId('order-display-id')).toContainText('Order #');
-  await snap(page, testInfo, '05-order-confirmation');
+  await snap(page, testInfo, '08-order-confirmation');
 
   await page.getByTestId('back-to-menu-button').click();
+  await snap(page, testInfo, '09-back-to-menu');
   await page.getByTestId('tab-bag').click();
   await expect(page.getByTestId('cart-item')).toHaveCount(0);
-  await snap(page, testInfo, '06-bag-emptied');
+  await snap(page, testInfo, '10-bag-emptied');
 });
 
 test('logged-in checkout prefills from the persisted default address and can be overridden for a different receiver', async ({
@@ -81,6 +85,7 @@ test('logged-in checkout prefills from the persisted default address and can be 
 }, testInfo) => {
   const phone = uniquePhone();
 
+  await snap(page, testInfo, '01-menu-before-login');
   await page.getByTestId('tab-you').click();
   await page.getByTestId('auth-mode-toggle').click();
   await page.getByTestId('first-name-input').fill('Grace');
@@ -90,13 +95,18 @@ test('logged-in checkout prefills from the persisted default address and can be 
   await page.getByTestId('address-input').fill('1 Signup Way');
   await page.getByTestId('city-input').fill('Hanoi');
   await page.getByTestId('password-input').fill('TestPass123!');
+  await snap(page, testInfo, '02-signup-form-filled');
   await page.getByTestId('auth-submit-button').click();
   await expect(page.getByTestId('customer-name')).toHaveText('Grace Hopper', { timeout: 15000 });
+  await snap(page, testInfo, '03-signed-up');
 
   await page.getByTestId('tab-menu').click();
+  await snap(page, testInfo, '04-menu-before-quick-add');
   await page.getByTestId('featured-quick-add-button').click();
+  await snap(page, testInfo, '05-quick-added-to-bag');
   await page.getByTestId('tab-bag').click();
   await expect(page.getByTestId('cart-item')).toHaveCount(1, { timeout: 15000 });
+  await snap(page, testInfo, '06-bag-before-pay');
   await page.getByTestId('pay-button').click();
 
   await expect(page.getByTestId('checkout-container')).toBeVisible();
@@ -108,7 +118,7 @@ test('logged-in checkout prefills from the persisted default address and can be 
   await expect(page.getByTestId('phone-input')).toHaveValue(phone);
   await expect(page.getByTestId('address-input')).toHaveValue('1 Signup Way');
   await expect(page.getByTestId('city-input')).toHaveValue('Hanoi');
-  await snap(page, testInfo, '01-checkout-prefilled');
+  await snap(page, testInfo, '07-checkout-prefilled');
 
   await page.getByTestId('use-different-address-button').click();
   await expect(page.getByTestId('first-name-input')).toHaveValue('');
@@ -117,7 +127,7 @@ test('logged-in checkout prefills from the persisted default address and can be 
   await expect(page.getByTestId('address-input')).toHaveValue('');
   await expect(page.getByTestId('city-input')).toHaveValue('');
   await expect(page.getByTestId('use-different-address-button')).toHaveCount(0);
-  await snap(page, testInfo, '02-checkout-cleared-for-different-receiver');
+  await snap(page, testInfo, '08-checkout-cleared-for-different-receiver');
 
   await page.getByTestId('email-input').fill('ember-e2e-receiver@example.com');
   await page.getByTestId('phone-input').fill(uniquePhone());
@@ -125,24 +135,29 @@ test('logged-in checkout prefills from the persisted default address and can be 
   await page.getByTestId('last-name-input').fill('Lovelace');
   await page.getByTestId('address-input').fill('123 Test St');
   await page.getByTestId('city-input').fill('Ho Chi Minh City');
+  await snap(page, testInfo, '09-different-receiver-form-filled');
   await page.getByTestId('continue-to-delivery-button').click();
 
   const shippingOptions = page.getByTestId('shipping-option');
   await expect(shippingOptions.first()).toBeVisible();
+  await snap(page, testInfo, '10-delivery-options');
   await page.getByTestId('place-order-button').click();
   await expect(page.getByTestId('order-confirmation')).toBeVisible({ timeout: 15000 });
-  await snap(page, testInfo, '03-order-confirmation-different-receiver');
+  await snap(page, testInfo, '11-order-confirmation-different-receiver');
 });
 
 test('checkout form cannot be submitted with required fields missing', async ({ page }, testInfo) => {
+  await snap(page, testInfo, '01-menu-before-quick-add');
   await page.getByTestId('featured-quick-add-button').click();
+  await snap(page, testInfo, '02-quick-added-to-bag');
   await page.getByTestId('tab-bag').click();
+  await snap(page, testInfo, '03-bag-before-pay');
   await page.getByTestId('pay-button').click();
 
   await expect(page.getByTestId('continue-to-delivery-button')).toBeDisabled();
-  await snap(page, testInfo, '01-continue-disabled-empty-form');
+  await snap(page, testInfo, '04-continue-disabled-empty-form');
 
   await page.getByTestId('email-input').fill('partial@example.com');
   await expect(page.getByTestId('continue-to-delivery-button')).toBeDisabled();
-  await snap(page, testInfo, '02-continue-disabled-partial-form');
+  await snap(page, testInfo, '05-continue-disabled-partial-form');
 });

@@ -25,33 +25,42 @@ function publishableKey(): string {
 }
 
 test('customizing a drink adds its pre-selected extra as a separate, linked cart line item', async ({ page }, testInfo) => {
+  await snap(page, testInfo, '01-menu-before-drink-select');
   await page.getByTestId('featured-drink-card').click();
-  await snap(page, testInfo, '01-drink-detail');
+  await snap(page, testInfo, '02-drink-detail');
 
   await page.getByTestId('add-to-bag-button').click();
+  await snap(page, testInfo, '03-added-to-bag');
 
   await page.getByTestId('tab-bag').click();
   await expect(page.getByTestId('cart-item')).toHaveCount(1);
   await expect(page.getByTestId('cart-item-extra')).toHaveCount(1);
-  await snap(page, testInfo, '02-bag-with-extra');
+  await snap(page, testInfo, '04-bag-with-extra');
 
   // Removing the drink (qty to 0) must cascade-remove its linked extra too.
   const parentControls = page.getByTestId('cart-item').locator('button').first();
+  await snap(page, testInfo, '05-bag-before-remove');
   await parentControls.click();
 
   await expect(page.getByTestId('cart-item')).toHaveCount(0);
   await expect(page.getByTestId('cart-item-extra')).toHaveCount(0);
-  await snap(page, testInfo, '03-bag-emptied');
+  await snap(page, testInfo, '06-bag-emptied');
 });
 
-test('increasing a drink\'s cart quantity scales its linked extra\'s quantity to match', async ({ page }) => {
+test('increasing a drink\'s cart quantity scales its linked extra\'s quantity to match', async ({ page }, testInfo) => {
+  await snap(page, testInfo, '01-menu-before-drink-select');
   await page.getByTestId('featured-drink-card').click();
+  await snap(page, testInfo, '02-drink-detail');
+
   await page.getByTestId('add-to-bag-button').click();
+  await snap(page, testInfo, '03-added-to-bag');
 
   await page.getByTestId('tab-bag').click();
+  await snap(page, testInfo, '04-bag-before-qty-increase');
   const qtyButtons = page.getByTestId('cart-item').locator('button');
   await qtyButtons.nth(1).click(); // plus: drink qty 1 -> 2
   await expect(page.getByTestId('cart-item').locator('span').first()).toHaveText('2');
+  await snap(page, testInfo, '05-bag-after-qty-increase');
 
   const cartId = await page.evaluate(() => localStorage.getItem('ember_cart_id'));
   const res = await page.request.get(`http://localhost:9000/store/carts/${cartId}`, {
