@@ -1,13 +1,14 @@
 # medusajs-2.0-for-railway-boilerplate
 
-Monorepo: a MedusaJS 2.0 commerce backend + a Next.js storefront, originally packaged as a one-click Railway deploy template. Two independent npm/pnpm projects (`backend/`, `storefront/`) wired together for local dev via `docker-compose.yml` at the repo root.
+Monorepo: a MedusaJS 2.0 commerce backend + two independent storefronts, originally packaged as a one-click Railway deploy template. Three independent npm/pnpm projects (`backend/`, `storefront/`, `new-storefront/`) wired together for local dev via `docker-compose.yml` at the repo root (backend + `storefront` only).
 
 ## Repo layout
 
 ```
-backend/      Medusa 2.13.6 server (API, admin dashboard, modules, workflows)
-storefront/   Next.js 15 / React 19 storefront (App Router) + Playwright e2e
-docs/         Hand-written research/handoff docs from past agent sessions (see below)
+backend/          Medusa 2.13.6 server (API, admin dashboard, modules, workflows)
+storefront/       Next.js 15 / React 19 storefront (App Router) + Playwright e2e
+new-storefront/   Vite/React "Ember Coffee App" storefront (own design + Playwright e2e, see below)
+docs/             Hand-written research/handoff docs from past agent sessions (see below)
 docker-compose.yml   postgres + redis + meilisearch + backend + storefront, for local e2e
 ```
 
@@ -15,10 +16,11 @@ docker-compose.yml   postgres + redis + meilisearch + backend + storefront, for 
 
 This repo accumulates agent research/handoff docs instead of losing that context between sessions. **Check here first** before re-exploring something that may already be documented:
 
-- `docs/sessions/` — numbered handoff docs in chronological order (001 docker-compose setup, 002 e2e baseline, 003 promotions module research, 004 customer-auth-header bugfix, 005 checkout e2e against the Railway deploy). Each ends with "Open items" for the next agent — check the latest one before starting infra/e2e work.
+- `docs/sessions/` — numbered handoff docs in chronological order (001 docker-compose setup, 002 e2e baseline, 003 promotions module research, 004 customer-auth-header bugfix, 005 checkout e2e against the Railway deploy, ...014 phone login + persisted default address for `new-storefront`). Each ends with "Open items" for the next agent — check the latest one before starting infra/e2e work.
 - `docs/flows/` — storefront user-journey deep dives grounded in actual code (checkout, cart/promotions, browse/search/PDP), each with file:line references and a "States & edge cases" section calling out real bugs found (not hypothetical).
 - `docs/research/` — standalone technical research (e.g. `@medusajs/loyalty-plugin` gift-card data model — **not installed** in this repo; gift card e2e tests are skipped because v2 core has no gift-card concept).
 - `docs/railway.md` — first live Railway deployment (CLI-driven): project/service topology, `railway.json` files, why `storefront/Dockerfile.railway` exists as a separate file from `storefront/Dockerfile`, and gotchas (Docker build-arg env injection, PORT/domain mismatches, storefront OOM at container-start build). Check before touching Railway config or redeploying.
+- `docs/agent-workflow.md` — a 5-stage subagent pipeline (`.claude/agents/`) for building features under TDD with a UX/UI gate, writing a markdown handoff file per stage to `docs/handoffs/<feature-slug>/` for traceability, then rolling up into a `docs/sessions/` entry. Use this when picking up nontrivial feature work rather than improvising an ad hoc process.
 
 Known open issues called out in these docs (verify currency before acting):
 - `storefront` checkout/discount e2e specs expect a `us`/`usd` region but `backend/src/scripts/seed.ts` only seeds `eur`/Europe — blocks several checkout/discount tests.
@@ -67,6 +69,31 @@ Next.js `15.5.x` App Router, React `19`, `@medusajs/js-sdk` (preview), Tailwind 
 **E2E tests** (`storefront/e2e/`, Playwright): `tests/public/` (cart, checkout, discount, login, register, search, giftcard[skipped]) and `tests/authenticated/` (address, orders, profile — require the `setup` project's global login to pass first). Run against a real running backend (no mocking) — typically the docker-compose stack. `playwright.config.ts` reuses an already-running server at `NEXT_PUBLIC_BASE_URL`.
 
 **Env vars**: `storefront/check-env-variables.js` enforces `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` at startup. Template at `storefront/.env.local.template` — copy to `.env.local`. A running backend on port 9000 is required before the storefront will build/run.
+
+## New storefront (`new-storefront/`)
+
+"Ember Coffee App" — a separate, independent Vite/React 18 storefront (not Next.js, not part of
+`docker-compose.yml`), currently the actively-developed frontend (see `docs/sessions/011` through
+`014`). Own `package.json` (`ember-coffee-app`), own `@medusajs/js-sdk` usage, own design language.
+
+**Scripts** (run from `new-storefront/`):
+- `npm run dev` — Vite dev server
+- `npm run build` — `tsc -b && vite build`
+- `npm run test-e2e` — `playwright test e2e`
+
+**Source layout** (`new-storefront/src/`): `screens/` (top-level views, e.g. `CheckoutScreen.tsx`,
+`AccountScreen.tsx`, `RewardsScreen.tsx`), `components/`, `lib/` (`auth.ts`, `checkout.ts`,
+`loyalty.ts` — SDK wrapper functions, some using `sdk.client.fetch()` escape hatches for custom
+backend routes not covered by the SDK's typed methods), `App.tsx` (top-level state/routing).
+
+**Design reference**: `new-storefront/design-reference/` holds the original mockup this app was
+built from — check before adding new UI patterns.
+
+**E2E tests** (`new-storefront/e2e/`): `auth.spec.ts`, `checkout.spec.ts`, `extras.spec.ts`,
+`rewards.spec.ts`. Run against a real backend, same convention as `storefront/`.
+
+Runs against the same backend as `storefront/` but is not wired into `docker-compose.yml` — start
+it separately (`npm run dev`, backend on `:9000`) for local work.
 
 ## Local dev (docker-compose)
 
