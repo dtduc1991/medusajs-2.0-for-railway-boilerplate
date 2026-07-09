@@ -60,13 +60,9 @@ services:
       BACKEND_PUBLIC_URL: http://localhost:9000
       ADMIN_CORS: http://localhost:9000,http://localhost:7000,http://localhost:7001
       AUTH_CORS: http://localhost:9000,http://localhost:7000,http://localhost:7001,http://localhost:5173
-      STORE_CORS: http://localhost:8000,http://localhost:5173
-    # Port 8000 and 7700 are published here too because the storefront container
-    # shares this service's network namespace (see "network_mode" below) so that
-    # NEXT_PUBLIC_* URLs resolve identically for server-side calls and the browser.
+      STORE_CORS: http://localhost:5173
     ports:
       - "9000:9000"
-      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,20 +79,19 @@ services:
     volumes:
       - backend_uploads:/app/static
 
-  storefront:
+  new-storefront:
     build:
-      context: ./storefront
+      context: ./new-storefront
       dockerfile: Dockerfile
     restart: unless-stopped
-    network_mode: "service:backend"
     environment:
-      NEXT_PUBLIC_MEDUSA_BACKEND_URL: http://localhost:9000
-      NEXT_PUBLIC_BASE_URL: http://localhost:8000
-      NEXT_PUBLIC_DEFAULT_REGION: us
-      NEXT_PUBLIC_SEARCH_ENDPOINT: http://localhost:7700
-      NEXT_PUBLIC_SEARCH_API_KEY: ${MEILI_MASTER_KEY:-masterKeyChangeMe123}
-      NEXT_PUBLIC_INDEX_NAME: products
-      PORT: "8000"
+      # Browser-facing URL, baked into the built bundle (this is a client-only SPA,
+      # no SSR, so unlike the old storefront it doesn't need to share backend's
+      # network namespace - see Dockerfile for why INTERNAL_MEDUSA_URL exists too).
+      VITE_MEDUSA_BACKEND_URL: http://localhost:9000
+      INTERNAL_MEDUSA_URL: http://backend:9000
+    ports:
+      - "5173:5173"
     depends_on:
       backend:
         condition: service_healthy
