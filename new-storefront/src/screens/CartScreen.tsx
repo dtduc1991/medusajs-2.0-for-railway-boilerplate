@@ -37,7 +37,7 @@ export function CartScreen({ cart, onQty, onApplyPromo, promoError, onBrowse, on
         </div>
         <div style={{ font: `700 20px ${theme.display}`, color: theme.ink }}>Your bag is empty</div>
         <div style={{ font: `400 14px ${theme.body}`, color: theme.muted, textAlign: 'center' }}>Add a drink from the menu or ask Ember for a recommendation.</div>
-        <button onClick={onBrowse} style={{ marginTop: 6, height: 48, padding: '0 24px', borderRadius: 16, background: theme.accent, color: '#fff', border: 'none', cursor: 'pointer', font: `600 15px ${theme.body}` }}>
+        <button data-testid="browse-menu-button" onClick={onBrowse} style={{ marginTop: 6, height: 48, padding: '0 24px', borderRadius: 16, background: theme.accent, color: '#fff', border: 'none', cursor: 'pointer', font: `600 15px ${theme.body}` }}>
           Browse the menu
         </button>
       </div>
@@ -84,11 +84,11 @@ export function CartScreen({ cart, onQty, onApplyPromo, promoError, onBrowse, on
                 <div style={{ font: `600 14px ${theme.display}`, color: theme.ink, marginTop: 5 }}>{money(it.unitPrice, currencyCode)}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${theme.lineStrong}`, borderRadius: 11, background: theme.paper }}>
-                <button onClick={() => onQty(it.lineId, -1)} style={miniStep}>
+                <button onClick={() => onQty(it.lineId, -1)} aria-label={`Decrease quantity of ${it.title}`} style={miniStep}>
                   <Icon name="Minus" size={15} />
                 </button>
                 <span style={{ width: 22, textAlign: 'center', font: `600 14px ${theme.display}`, color: theme.ink }}>{it.qty}</span>
-                <button onClick={() => onQty(it.lineId, 1)} style={miniStep}>
+                <button onClick={() => onQty(it.lineId, 1)} aria-label={`Increase quantity of ${it.title}`} style={miniStep}>
                   <Icon name="Plus" size={15} />
                 </button>
               </div>

@@ -13,7 +13,8 @@ interface ChatScreenProps {
   variant: 'bubbles' | 'voice';
   onToggleVariant: (v: 'bubbles' | 'voice') => void;
   onExit: () => void;
-  onAdd: (drink: Drink) => void;
+  /** Rejects (and does not navigate to the Bag tab) if the add-to-cart call fails. */
+  onAdd: (drink: Drink) => Promise<void>;
 }
 
 export function ChatScreen({ drinks, variant, onToggleVariant, onExit, onAdd }: ChatScreenProps) {
@@ -46,10 +47,19 @@ function BubbleChat({
   onSwitch,
 }: {
   rec: Drink;
-  onAdd: (d: Drink) => void;
+  onAdd: (d: Drink) => Promise<void>;
   onExit: () => void;
   onSwitch: () => void;
 }) {
+  const [chatAddError, setChatAddError] = useState<string | null>(null);
+  const handleAdd = async (d: Drink) => {
+    setChatAddError(null);
+    try {
+      await onAdd(d);
+    } catch (err) {
+      setChatAddError(`Couldn't add to bag: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
   const initial: ChatMessage[] = useMemo(
     () => [
       { id: 'm1', from: 'bot', text: 'Morning, Alex! Feeling something bold, sweet, or iced today?' },
@@ -79,7 +89,7 @@ function BubbleChat({
     <>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 18px 14px', borderBottom: `1px solid rgba(34,27,22,0.07)` }}>
-        <button onClick={onExit} title="Back" style={{ ...resetBtn, color: theme.ink, display: 'flex' }}>
+        <button onClick={onExit} title="Back" aria-label="Back" style={{ ...resetBtn, color: theme.ink, display: 'flex' }}>
           <Icon name="ArrowLeft" size={22} />
         </button>
         <div style={{ width: 42, height: 42, borderRadius: 14, background: theme.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
@@ -114,7 +124,7 @@ function BubbleChat({
                   <div style={{ font: `700 14px ${theme.display}`, color: theme.accent }}>{money(m.card.price, m.card.currencyCode)}</div>
                 </div>
                 <button
-                  onClick={() => onAdd(m.card!)}
+                  onClick={() => handleAdd(m.card!)}
                   style={{ marginTop: 11, width: '100%', height: 40, borderRadius: 12, background: theme.accent, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, font: `600 14px ${theme.body}` }}
                 >
                   <Icon name="Plus" size={16} />
@@ -133,12 +143,18 @@ function BubbleChat({
         )}
       </div>
 
+      {chatAddError && (
+        <div data-testid="chat-quick-add-error" role="alert" style={{ margin: '10px 18px 0', font: `500 13px ${theme.body}`, color: theme.accent }}>
+          {chatAddError}
+        </div>
+      )}
+
       {/* Quick replies */}
       <div style={{ display: 'flex', gap: 8, padding: '12px 18px 0', overflowX: 'auto' }}>
         {QUICK_REPLIES.map((q, i) => (
           <button
             key={q}
-            onClick={() => (i === 0 ? onAdd(rec) : send(q))}
+            onClick={() => (i === 0 ? handleAdd(rec) : send(q))}
             style={{
               padding: '9px 15px',
               borderRadius: theme.rPill,
@@ -211,21 +227,31 @@ function VoiceChat({
   onSwitch,
 }: {
   rec: Drink;
-  onAdd: (d: Drink) => void;
+  onAdd: (d: Drink) => Promise<void>;
   onExit: () => void;
   onSwitch: () => void;
 }) {
+  const [chatAddError, setChatAddError] = useState<string | null>(null);
+  const handleAdd = async (d: Drink) => {
+    setChatAddError(null);
+    try {
+      await onAdd(d);
+    } catch (err) {
+      setChatAddError(`Couldn't add to bag: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', color: theme.cream }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 22px 8px' }}>
-        <button onClick={onExit} title="Close" style={darkBtn}>
+        <button onClick={onExit} title="Close" aria-label="Close" style={darkBtn}>
           <Icon name="X" size={18} />
         </button>
         <div style={{ textAlign: 'center' }}>
           <div style={{ font: `700 14px ${theme.display}`, letterSpacing: '0.12em', color: theme.cream }}>EMBER</div>
           <div style={{ font: `500 11px ${theme.body}`, color: theme.gold }}>AI barista</div>
         </div>
-        <button style={darkBtn}>
+        <button aria-label="History" style={darkBtn}>
           <Icon name="History" size={18} />
         </button>
       </div>
@@ -273,7 +299,7 @@ function VoiceChat({
             <div style={{ font: `700 14px ${theme.display}`, color: theme.gold }}>{money(rec.price, rec.currencyCode)}</div>
           </div>
           <div style={{ display: 'flex', gap: 9, marginTop: 14 }}>
-            <button onClick={() => onAdd(rec)} style={{ flex: 1, height: 42, borderRadius: 13, background: theme.accent, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, font: `600 13px ${theme.body}` }}>
+            <button onClick={() => handleAdd(rec)} style={{ flex: 1, height: 42, borderRadius: 13, background: theme.accent, color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, font: `600 13px ${theme.body}` }}>
               <Icon name="Plus" size={16} />
               Add to bag
             </button>
@@ -283,6 +309,12 @@ function VoiceChat({
           </div>
         </div>
       </div>
+
+      {chatAddError && (
+        <div data-testid="chat-quick-add-error" role="alert" style={{ margin: '0 24px 14px', font: `500 13px ${theme.body}`, color: theme.gold }}>
+          {chatAddError}
+        </div>
+      )}
 
       <div style={{ flexShrink: 0, padding: '14px 24px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(244,239,230,0.08)' }}>
         <button onClick={onSwitch} style={{ ...darkBtn, width: 46, height: 46, borderRadius: 14 }}>
@@ -294,7 +326,7 @@ function VoiceChat({
           </div>
           <span style={{ font: `600 11px ${theme.body}`, color: 'rgba(244,239,230,0.55)' }}>Hold to talk</span>
         </div>
-        <button style={{ ...darkBtn, width: 46, height: 46, borderRadius: 14 }}>
+        <button aria-label="Suggestions" style={{ ...darkBtn, width: 46, height: 46, borderRadius: 14 }}>
           <Icon name="Sparkles" size={20} />
         </button>
       </div>

@@ -44,13 +44,13 @@ export function DrinkDetailScreen({ drink, extras, onBack, onAdd }: DrinkDetailS
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 22px 10px' }}>
-        <button onClick={onBack} style={circleBtn(theme.ink)}>
+        <button onClick={onBack} aria-label="Back" style={circleBtn(theme.ink)}>
           <Icon name="ArrowLeft" size={19} />
         </button>
         <span style={{ font: `600 13px ${theme.body}`, color: theme.muted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
           Customize
         </span>
-        <button style={circleBtn(theme.accent)}>
+        <button aria-label="Add to favorites" style={circleBtn(theme.accent)}>
           <Icon name="Heart" size={19} />
         </button>
       </div>
@@ -190,11 +190,11 @@ export function DrinkDetailScreen({ drink, extras, onBack, onAdd }: DrinkDetailS
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${theme.lineStrong}`, borderRadius: 14, overflow: 'hidden', background: theme.paper }}>
-          <button onClick={() => setQty((q) => Math.max(1, q - 1))} style={stepBtn}>
+          <button onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease quantity" style={stepBtn}>
             <Icon name="Minus" size={18} />
           </button>
           <span style={{ width: 30, textAlign: 'center', font: `600 16px ${theme.display}`, color: theme.ink }}>{qty}</span>
-          <button onClick={() => setQty((q) => q + 1)} style={stepBtn}>
+          <button onClick={() => setQty((q) => q + 1)} aria-label="Increase quantity" style={stepBtn}>
             <Icon name="Plus" size={18} />
           </button>
         </div>

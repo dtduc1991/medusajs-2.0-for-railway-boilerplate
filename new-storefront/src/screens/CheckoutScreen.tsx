@@ -117,7 +117,7 @@ export function CheckoutScreen({ cart, customer, onBack, onPlaced, onGoToAccount
   return (
     <div data-testid="checkout-container" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '4px 22px 10px' }}>
-        <button onClick={onBack} style={circleBtn}>
+        <button onClick={onBack} aria-label="Back" style={circleBtn}>
           <Icon name="ArrowLeft" size={19} />
         </button>
         <span style={{ font: `700 20px ${theme.display}`, color: theme.ink, letterSpacing: '-0.02em' }}>Checkout</span>

@@ -2,23 +2,36 @@ import { useEffect, useState } from 'react';
 import { theme } from '../theme';
 import { Icon } from '../components/Icon';
 import { Placeholder } from '../components/Placeholder';
-import { STORE, USER, money } from '../data';
+import { STORE, money } from '../data';
+import type { Customer } from '../lib/auth';
 import type { Drink } from '../types';
 
 interface MenuScreenProps {
   drinks: Drink[];
   categories: string[];
+  customer: Customer | null;
   onOpenDrink: (id: string) => void;
-  onQuickAdd: (drink: Drink) => void;
+  /** Rejects if the add-to-cart call fails, so callers can surface a real error. */
+  onQuickAdd: (drink: Drink) => Promise<void>;
 }
 
-export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: MenuScreenProps) {
+export function MenuScreen({ drinks, categories, customer, onOpenDrink, onQuickAdd }: MenuScreenProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  // Quick-add's cart update is async (bag badge lags a network round trip) —
-  // flip the plus icon to a checkmark immediately on click so the tap reads
-  // as instant regardless of that delay.
+  // Quick-add's cart update is async (bag badge lags a network round trip).
+  // The checkmark now only appears once the add-to-cart promise actually
+  // resolves (see quickAddError below) — a deliberate change from this
+  // screen's original "flip instantly on click" optimism, which is what let
+  // a rejected call show a false-positive success checkmark (Finding 1,
+  // docs/handoffs/new-storefront-high-severity-ux-fixes).
   const [justAdded, setJustAdded] = useState(false);
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
+  // Which control (if any) currently has a request in flight — guards
+  // against double-fire retry-spam and drives the 0.5-opacity pending state.
+  const [pendingFeatured, setPendingFeatured] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [quickAddError, setQuickAddError] = useState<string | null>(null);
+
+  const displayName = (customer?.first_name ?? customer?.phone ?? customer?.email ?? '').toUpperCase();
 
   useEffect(() => {
     if (!selectedCategory && categories.length) setSelectedCategory(categories[0]);
@@ -46,17 +59,27 @@ export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: Menu
             <Icon name="MapPin" size={15} color={theme.accent} />
             {STORE.name.toUpperCase()} · {STORE.location.toUpperCase()}
           </div>
-          <button style={iconButton}>
+          <button style={iconButton} aria-label="Notifications">
             <Icon name="Bell" size={18} />
           </button>
         </div>
-        <div style={{ font: `600 12px ${theme.body}`, letterSpacing: '0.1em', color: theme.muted, marginTop: 16 }}>
-          GOOD MORNING, {USER.firstName.toUpperCase()}
+        <div data-testid="menu-greeting" style={{ font: `600 12px ${theme.body}`, letterSpacing: '0.1em', color: theme.muted, marginTop: 16 }}>
+          {displayName ? `GOOD MORNING, ${displayName}` : 'GOOD MORNING'}
         </div>
         <div style={{ font: `700 31px ${theme.display}`, color: theme.ink, letterSpacing: '-0.03em', marginTop: 2 }}>
           Order ahead
         </div>
       </div>
+
+      {quickAddError && (
+        <div
+          data-testid="quick-add-error"
+          role="alert"
+          style={{ margin: '10px 24px 0', font: `500 13px ${theme.body}`, color: theme.accent }}
+        >
+          {quickAddError}
+        </div>
+      )}
 
       {/* Search */}
       <div
@@ -153,11 +176,24 @@ export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: Menu
             <Placeholder tint={featured.tint} width={106} height={120} label={`${featured.handle}.jpg`} />
             <span
               data-testid="featured-quick-add-button"
-              onClick={(e) => {
+              role="button"
+              tabIndex={0}
+              aria-label={`Add ${featured.name} to bag`}
+              aria-disabled={pendingFeatured}
+              onClick={async (e) => {
                 e.stopPropagation();
-                onQuickAdd(featured);
-                setJustAdded(true);
-                setTimeout(() => setJustAdded(false), 900);
+                if (pendingFeatured) return; // retry-spam guard
+                setPendingFeatured(true);
+                setQuickAddError(null);
+                try {
+                  await onQuickAdd(featured);
+                  setJustAdded(true);
+                  setTimeout(() => setJustAdded(false), 900);
+                } catch (err) {
+                  setQuickAddError(`Couldn't add to bag: ${err instanceof Error ? err.message : String(err)}`);
+                } finally {
+                  setPendingFeatured(false);
+                }
               }}
               style={{
                 position: 'absolute',
@@ -172,8 +208,10 @@ export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: Menu
                 alignItems: 'center',
                 justifyContent: 'center',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                opacity: pendingFeatured ? 0.5 : 1,
                 transform: justAdded ? 'scale(1.15)' : 'scale(1)',
                 transition: 'transform 150ms ease',
+                cursor: 'pointer',
               }}
             >
               <Icon name={justAdded ? 'Check' : 'Plus'} size={20} />
@@ -199,10 +237,21 @@ export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: Menu
               </button>
               <button
                 data-testid="quick-add-button"
-                onClick={() => {
-                  onQuickAdd(d);
-                  setJustAddedId(d.id);
-                  setTimeout(() => setJustAddedId((cur) => (cur === d.id ? null : cur)), 900);
+                aria-label={`Add ${d.name} to bag`}
+                disabled={pendingId === d.id}
+                onClick={async () => {
+                  if (pendingId === d.id) return; // retry-spam guard
+                  setPendingId(d.id);
+                  setQuickAddError(null);
+                  try {
+                    await onQuickAdd(d);
+                    setJustAddedId(d.id);
+                    setTimeout(() => setJustAddedId((cur) => (cur === d.id ? null : cur)), 900);
+                  } catch (err) {
+                    setQuickAddError(`Couldn't add to bag: ${err instanceof Error ? err.message : String(err)}`);
+                  } finally {
+                    setPendingId((cur) => (cur === d.id ? null : cur));
+                  }
                 }}
                 style={{
                   width: 34,
@@ -216,6 +265,7 @@ export function MenuScreen({ drinks, categories, onOpenDrink, onQuickAdd }: Menu
                   background: 'none',
                   cursor: 'pointer',
                   flexShrink: 0,
+                  opacity: pendingId === d.id ? 0.5 : 1,
                   transform: justAddedId === d.id ? 'scale(1.15)' : 'scale(1)',
                   transition: 'transform 150ms ease',
                 }}

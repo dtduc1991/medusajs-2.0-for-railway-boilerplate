@@ -36,6 +36,10 @@ test('guest can add a drink, check out, and land on a real order confirmation', 
   await payButton.click();
 
   await expect(page.getByTestId('checkout-container')).toBeVisible();
+  // Finding 4: the checkout back button is announced by an accessible name,
+  // not just visually (matching the confirmed-correct
+  // checkout-login-nudge-dismiss pattern already in this file).
+  await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
   // Logged-out nudge: visible, dismissible, and never blocks guest checkout.
   await expect(page.getByTestId('checkout-login-nudge')).toBeVisible();
   await snap(page, testInfo, '04-checkout-login-nudge');
@@ -160,4 +164,58 @@ test('checkout form cannot be submitted with required fields missing', async ({ 
   await page.getByTestId('email-input').fill('partial@example.com');
   await expect(page.getByTestId('continue-to-delivery-button')).toBeDisabled();
   await snap(page, testInfo, '05-continue-disabled-partial-form');
+});
+
+test('reaching checkout with an empty cart reroutes to the Bag tab instead of a dead end (Finding 3)', async ({ page }, testInfo) => {
+  // Reproduces the race described in 00-spec.md: the cart empties out from
+  // under the user between pressing "Pay" (synchronous, reads the
+  // still-non-empty `cart` state) and the qty-decrement-to-zero request that
+  // was already in flight resolving. Deterministic exception to this suite's
+  // "real backend, no mocking" convention, scoped narrowly to *timing
+  // control* (delaying one real DELETE response) rather than mocking any
+  // response body/data — the request still round-trips to the real backend.
+  await page.getByTestId('featured-quick-add-button').click();
+  await page.getByTestId('tab-bag').click();
+  await expect(page.getByTestId('cart-item')).toHaveCount(1, { timeout: 15000 });
+  await snap(page, testInfo, '01-bag-with-one-item');
+
+  let releaseDelete: () => void = () => {};
+  const deleteHeld = new Promise<void>((resolve) => {
+    releaseDelete = resolve;
+  });
+  await page.route('**/store/carts/*/line-items/*', async (route) => {
+    if (route.request().method() === 'DELETE') {
+      await deleteHeld;
+    }
+    try {
+      await route.continue();
+    } catch {
+      // Ignore "Route is already handled" — can happen if the browser
+      // retries/duplicates the held request; this test only cares about
+      // timing the *first* DELETE's resolution relative to the Pay click.
+    }
+  });
+
+  // Minus on the only item removes it (qty -> 0), but the DELETE is held.
+  const minusButton = page.getByTestId('cart-item').locator('button').first();
+  await minusButton.click();
+  // Pay reads the still-stale, non-empty `cart` state and enters checkout.
+  await page.getByTestId('pay-button').click();
+  await expect(page.getByTestId('checkout-container')).toBeVisible();
+  await snap(page, testInfo, '02-checkout-with-stale-nonempty-cart');
+
+  // Now let the held DELETE resolve — the cart updates to empty while
+  // view.kind === 'checkout' is still current.
+  releaseDelete();
+
+  // Must land on a normal, interactive tab view with a working TabBar and a
+  // "Browse the menu" recovery affordance — never the bare, affordance-less
+  // "Your bag is empty." dead end.
+  await expect(page.getByTestId('browse-menu-button')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('tab-bag')).toBeVisible();
+  await snap(page, testInfo, '03-rerouted-to-bag-empty-state');
+
+  await page.getByTestId('browse-menu-button').click();
+  await expect(page.getByTestId('menu-greeting')).toBeVisible();
+  await snap(page, testInfo, '04-browse-menu-lands-on-menu-tab');
 });

@@ -61,6 +61,19 @@ export default function App() {
     getCurrentCustomer().then(setCustomer);
   }, []);
 
+  // Finding 3 (docs/handoffs/new-storefront-high-severity-ux-fixes): reaching
+  // the checkout view with an empty/null cart (e.g. a race where the cart
+  // empties out from under the user between pressing "Pay" and this screen
+  // mounting) used to render a bare, TabBar-less "Your bag is empty." dead
+  // end with no way back. Instead, reroute to the Bag tab, whose empty-cart
+  // state already has the right icon/heading/"Browse the menu" CTA and a
+  // normal, functional TabBar.
+  useEffect(() => {
+    if (view.kind === 'checkout' && (!cart || cart.items.length === 0)) {
+      setView({ kind: 'tab', tab: 'bag' });
+    }
+  }, [view, cart]);
+
   // Only categories that a fetched drink actually belongs to — no point showing an
   // empty category chip (see listDrinks() in lib/backend.ts for why some products
   // are filtered out entirely).
@@ -80,11 +93,18 @@ export default function App() {
     setCart(next);
   };
 
-  /** Quick-add uses sensible defaults (Medium / Oat). */
-  const quickAdd = (drink: Drink) => {
+  /**
+   * Quick-add uses sensible defaults (Medium / Oat). Returns the
+   * add-to-cart promise (rather than being fire-and-forget) so callers
+   * (MenuScreen, ChatScreen) can await/catch it and only show success state
+   * once the cart update actually lands — see
+   * docs/handoffs/new-storefront-high-severity-ux-fixes for the bug this
+   * fixes (a false-positive success checkmark on a rejected network call).
+   */
+  const quickAdd = (drink: Drink): Promise<void> => {
     const variant = drink.variants.find((v) => v.size === 'Medium' && v.milk === 'Oat') ?? drink.variants[0];
-    if (!variant) return;
-    void addVariantToCart(variant.id, 1);
+    if (!variant) return Promise.reject(new Error('This drink has no available options right now.'));
+    return addVariantToCart(variant.id, 1);
   };
 
   const changeQty = (lineId: string, delta: number) => {
@@ -185,7 +205,10 @@ export default function App() {
               }}
             />
           ) : (
-            <StatusMessage text="Your bag is empty." />
+            // Transient: the useEffect above corrects `view` to the Bag tab
+            // on the very next render — never a permanent, affordance-less
+            // dead end (see Finding 3).
+            null
           )
         ) : view.kind === 'orderConfirmation' ? (
           <OrderConfirmationScreen displayId={view.displayId} onDone={() => goTab('menu')} />
@@ -196,6 +219,7 @@ export default function App() {
               <MenuScreen
                 drinks={drinks}
                 categories={categories}
+                customer={customer}
                 onOpenDrink={(id) => setView({ kind: 'detail', drinkId: id })}
                 onQuickAdd={quickAdd}
               />
@@ -209,8 +233,8 @@ export default function App() {
                 variant={chatVariant}
                 onToggleVariant={setChatVariant}
                 onExit={() => goTab('menu')}
-                onAdd={(d) => {
-                  quickAdd(d);
+                onAdd={async (d) => {
+                  await quickAdd(d);
                   goTab('bag');
                 }}
               />

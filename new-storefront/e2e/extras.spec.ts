@@ -29,6 +29,13 @@ test('customizing a drink adds its pre-selected extra as a separate, linked cart
   await page.getByTestId('featured-drink-card').click();
   await snap(page, testInfo, '02-drink-detail');
 
+  // Finding 4: DrinkDetailScreen's icon-only back/favorite/qty-stepper
+  // buttons are all announced by an accessible name.
+  await expect(page.getByRole('button', { name: 'Back' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add to favorites' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Decrease quantity' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Increase quantity' })).toBeVisible();
+
   await page.getByTestId('add-to-bag-button').click();
   await snap(page, testInfo, '03-added-to-bag');
 
@@ -36,6 +43,13 @@ test('customizing a drink adds its pre-selected extra as a separate, linked cart
   await expect(page.getByTestId('cart-item')).toHaveCount(1);
   await expect(page.getByTestId('cart-item-extra')).toHaveCount(1);
   await snap(page, testInfo, '04-bag-with-extra');
+
+  // Finding 4: CartScreen's qty-stepper buttons carry a per-item accessible
+  // name (not a generic, duplicate-prone "Decrease/Increase quantity"),
+  // since this screen can render multiple line items at once.
+  const itemTitle = await page.getByTestId('cart-item').locator('> div').nth(1).locator('div').first().textContent();
+  await expect(page.getByRole('button', { name: `Decrease quantity of ${itemTitle}` })).toBeVisible();
+  await expect(page.getByRole('button', { name: `Increase quantity of ${itemTitle}` })).toBeVisible();
 
   // Removing the drink (qty to 0) must cascade-remove its linked extra too.
   const parentControls = page.getByTestId('cart-item').locator('button').first();
